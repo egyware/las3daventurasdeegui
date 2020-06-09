@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Las 3D Aventuras de Egui - Lista de proveedores</title>
+    <link rel="stylesheet" href="https://bootswatch.com/4/lux/bootstrap.min.css">    
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+</head>
+<body>
+    <div class="container" p-4>        
+        <h2>Tiendas</h2>
+        <div class="row" id="tiendas">Cargando lista....</div>        
+        <div class="row">
+            <p>Sigueme en instagram <a href="https://www.instagram.com/las3daventurasdeegui/">@las3daventurasdeegui</a></p>
+        </div>        
+    </div>
+    <script>
+        $(function(){
+            $.ajax({
+                url: "tiendas.json",                
+            }).done(function($data) {
+                var html = [];
+                $data.forEach(function($item){
+                    const newItem = 
+                        `<div class="col-12 col-md-4 p-2">
+                        <div class="card" style="max-height:285px">                            
+                            <div class="card-header">
+                            <h5 class="card-title text-truncate">
+                                <img class="img-fluid" style="max-height:1.75rem" src="${$item.favicon}" />
+                                <a href="${$item.website}">${$item.empresa}</a>
+                            </h5>
+                            </div>
+                            <div class="card-body text-left">                                                                              
+                                <p>${$item.resena}</p>
+                                <a href="${$item.ubicacion}">Ubicacion</a>                            
+                            </div>                            
+                        </div>
+                        </div>`;                        
+                    html.push(newItem);                        
+                })
+                $('#tiendas').html(html.join(""));
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+    "name": "las3daventurasdeegui",
+    "description": "Servicio de Impresion 3D",
+    "version": "0.0.1",
+    "private": true,
+    "license": "Private",
+    "author": "Edgardo Moreno",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "express": "^4.17.1"
+    }
+}
