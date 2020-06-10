@@ -19,7 +19,7 @@
     <script>
         $(function(){
             $.ajax({
-                url: "tiendas.json",                
+                url: "api/proveedores",
             }).done(function($data) {
                 var html = [];
                 $data.forEach(function($item){
@@ -33,8 +33,7 @@
                             </h5>
                             </div>
                             <div class="card-body text-left">                                                                              
-                                <p>${$item.resena}</p>
-                                <a href="${$item.ubicacion}">Ubicacion</a>                            
+                                <p>${$item.descripcion}</p>                                
                             </div>                            
                         </div>
                         </div>`;                        
