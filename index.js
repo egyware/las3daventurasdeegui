@@ -11,7 +11,7 @@ if(!connectionString.startsWith('mysql://')) {
     let connectionProperties = {}
     pairs.forEach(function(item){
         let pair = item.split('=');
-        Object.assign(connectionProperties,  { [pair[0].replace(/ /g, '')]: pair[1] });
+        Object.assign(connectionProperties,  { [pair[0].replace(/ /g, '')]: pair[1].replace(/#/g, '%23') });
     });    
     connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}`    
 }
