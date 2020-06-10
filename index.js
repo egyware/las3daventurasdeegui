@@ -6,6 +6,9 @@ var app = express();
 const connectionString = process.env.MYSQLCONNSTR_localdb || 'mysql://egui:passwd@localhost/las3daventuras';
 const port = process.env.PORT || 1337;
 
+console.log('MYSQLCONNSTR_localdb', process.env.MYSQLCONNSTR_localdb);
+console.log('MYSQLCONNSTR_localdb', connectionString);
+
 var pool = mysql.createPool(connectionString);
 
 //codigo
