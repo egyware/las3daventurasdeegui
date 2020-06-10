@@ -3,11 +3,18 @@ const mysql = require('mysql');
 var app = express();
 
 //constantes
-const connectionString = process.env.MYSQLCONNSTR_localdb || 'mysql://egui:passwd@localhost/las3daventuras';
 const port = process.env.PORT || 1337;
+var connectionString = process.env.MYSQLCONNSTR_localdb || 'mysql://egui:passwd@localhost/las3daventuras';
 
-console.log('MYSQLCONNSTR_localdb', process.env.MYSQLCONNSTR_localdb);
-console.log('MYSQLCONNSTR_localdb', connectionString);
+if(!connectionString.startsWith('mysql://')) {
+    let pairs = connectionString.split(';');
+    let connectionProperties = {}
+    pairs.forEach(function(item){
+        let pair = item.split('=');
+        Object.assign(connectionProperties,  { [pair[0].replace(/ /g, '')]: pair[1] });
+    });    
+    connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}`    
+}
 
 var pool = mysql.createPool(connectionString);
 
