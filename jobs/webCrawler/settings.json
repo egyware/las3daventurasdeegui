@@ -1,0 +1,5 @@
+{
+    "is_in_place": true,
+    "schedule": "0 0 0 * * 1-5",
+    "stopping_wait_time": 120 
+}

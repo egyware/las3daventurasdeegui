@@ -29,24 +29,24 @@ fetchData(url).then( (res) => {
     productos.each(function() {
         let producto = $(this);        
         
-        let id = producto.find('.id-caluga').text().replace(/\s+/g, ' ');
+        let sku = producto.find('.id-caluga').text().replace(/\s+/g, ' ');
         let marca = producto.find('.marca').text().replace(/\s+/g, ' ');
         let nombre = producto.find('.nombre').text().replace(/\s+/g, ' ');
         let precio = producto.find('.txt-precio').text().replace(/\s+/g, ' ').replace(/[\.$]/g, '');
         let stock = producto.find('.status-caluga').text().replace(/[\s\+\.a-zA-Z]+/g, '');
         
-        console.log(id, marca, nombre, precio, stock);
-
         pool.getConnection(function(err, connection) {
             if (err) {
               console.error('error connecting: ' + err.stack);
               return;
             }      
             console.log('connected as id ' + connection.threadId); 
-            connection.query(`INSERT INTO stock (ProveedorId, ProductoId, Stock, Precio, Link)
-                             VALUES(?,?,?,?,?)`,[4, 1, stock, precio, 'https://www.pcfactory.cl/producto/'+id], 
+            connection.query(`INSERT INTO stock (ProveedorId, Sku, Stock, Precio, Link)
+                             VALUES(?,?,?,?,?)`,[4, sku, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
                 function (error){
-                    if (error) throw error;                
+                    if (error) throw error;
+                
+                connection.release();                  
             });
         });
     });
