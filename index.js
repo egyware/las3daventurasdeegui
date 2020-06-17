@@ -52,10 +52,9 @@ app.get('/api/stock/:id', function(req, res){
           return;
         }      
         console.log('connected as id ' + connection.threadId);    
-        connection.query(`SELECT P.Nombre, S.Stock, S.Precio, S.Link
-                          FROM Stock as S
-                          INNER JOIN Productos as P ON (S.ProductoId = P.Id)
-                          WHERE S.ProveedorId = ?`, [req.params.id],
+        connection.query(`SELECT Nombre, Marca, Stock, Precio, Link
+                          FROM Stock                          
+                          WHERE ProveedorId = ?`, [req.params.id],
         function (error, results, fields) {
             if (error) throw error;
             // connected!

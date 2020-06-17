@@ -41,8 +41,8 @@ fetchData(url).then( (res) => {
               return;
             }      
             console.log('connected as id ' + connection.threadId); 
-            connection.query(`INSERT INTO stock (ProveedorId, Sku, Stock, Precio, Link)
-                             VALUES(?,?,?,?,?)`,[4, sku, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
+            connection.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                             VALUES(?,?,?,?,?,?,?)`,[4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
                 function (error){
                     if (error) throw error;
                 
