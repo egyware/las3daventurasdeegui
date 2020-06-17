@@ -9,10 +9,7 @@ const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
 if(fs.existsSync(filename))
 {
-    fs.readFile(filename, 'utf8', function(err, data) {
-        if (err) throw err;
-        connectionString = data;
-    });
+    connectionString = fs.readFileSync(filename, { encoding:'utf8', flag:'r'});        
 }
 
 if(!connectionString.startsWith('mysql://')) {
