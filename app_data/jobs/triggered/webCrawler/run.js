@@ -5,7 +5,7 @@ const fs = require('fs')
 
 
 //constantes
-const filename = 'D:\\home\\data\\mysql\\mysql\\MYSQLCONNSTR_localdb.txt';
+const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
 if(fs.existsSync(filename))
 {
