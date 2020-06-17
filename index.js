@@ -1,5 +1,6 @@
 const express = require('express');
 const mysql = require('mysql');
+const path = require('path');
 var app = express();
 
 
@@ -24,6 +25,10 @@ var pool = mysql.createPool(connectionString);
 
 //codigo
 app.use(express.static('public'));
+
+app.get('/stock/:id', function(req, res){
+    res.sendFile(path.join(__dirname, 'public', 'stock.html'));
+});
 app.get('/api/proveedores', function(req, res){
     pool.getConnection(function(err, connection) {
         if (err) {
@@ -32,6 +37,26 @@ app.get('/api/proveedores', function(req, res){
         }      
         console.log('connected as id ' + connection.threadId);    
         connection.query('SELECT * FROM Proveedores', function (error, results, fields) {
+            if (error) throw error;
+            // connected!
+            res.json(results);   
+
+            connection.release();
+        });
+    });
+});
+app.get('/api/stock/:id', function(req, res){
+    pool.getConnection(function(err, connection) {
+        if (err) {
+          console.error('error connecting: ' + err.stack);
+          return;
+        }      
+        console.log('connected as id ' + connection.threadId);    
+        connection.query(`SELECT P.Nombre, S.Stock, S.Precio, S.Link
+                          FROM Stock as S
+                          INNER JOIN Productos as P ON (S.ProductoId = P.Id)
+                          WHERE S.ProveedorId = ?`, [req.params.id],
+        function (error, results, fields) {
             if (error) throw error;
             // connected!
             res.json(results);   

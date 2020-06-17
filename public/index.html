@@ -20,23 +20,24 @@
     <script>
         $(function(){
             $.ajax({
-                url: "api/proveedores",
+                url: "/api/proveedores",
             }).done(function($data) {
                 var html = [];
                 $data.forEach(function($item){
                     const newItem = 
                         `<div class="col-12 col-md-4 p-2">
-                        <div class="card" style="max-height:285px">                            
-                            <div class="card-header">
-                            <h5 class="card-title text-truncate">
-                                <img class="img-fluid" style="max-height:1.75rem" src="${$item.favicon}" />
-                                <a href="${$item.website}">${$item.empresa}</a>
-                            </h5>
+                            <div class="card" style="max-height:285px">                            
+                                <div class="card-header">
+                                <h5 class="card-title text-truncate">
+                                    <img class="img-fluid" style="max-height:1.75rem" src="${$item.favicon}" />
+                                    <a href="${$item.website}">${$item.empresa}</a>
+                                </h5>
+                                </div>
+                                <div class="card-body text-left" style="height:180px;overflow-y:auto">                                                                              
+                                    <p>${$item.descripcion}</p>                                
+                                </div>                            
+                                <div class="card-footer"><a href="/stock/${$item.id}">Ver Stock</a></div>
                             </div>
-                            <div class="card-body text-left">                                                                              
-                                <p>${$item.descripcion}</p>                                
-                            </div>                            
-                        </div>
                         </div>`;                        
                     html.push(newItem);                        
                 })
