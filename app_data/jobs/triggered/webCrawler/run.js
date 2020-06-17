@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const mysql = require('mysql');
 const fs = require('fs')
+var Q = require( "q" );
 
 
 //constantes
@@ -24,9 +25,20 @@ if(!connectionString.startsWith('mysql://')) {
 
 var pool = mysql.createPool(connectionString);
 
+var db = {
+	query: function( sql, params ) {
+		var deferred = Q.defer();
+
+		// CAUTION: When using the node-resolver, the records and fields get passed into
+		// the resolution handler as an array.
+		pool.query( sql, params, deferred.makeNodeResolver() );
+
+		return( deferred.promise );
+	}
+};
+
 
 const url = "https://www.pcfactory.cl/buscar?valor=filamento";
-
 
 fetchData(url).then( (res) => {
     const html = res.data;
@@ -41,23 +53,22 @@ fetchData(url).then( (res) => {
         let precio = producto.find('.txt-precio').text().replace(/\s+/g, ' ').replace(/[\.$]/g, '');
         let stock = producto.find('.status-caluga').text().replace(/[\s\+\.a-zA-Z]+/g, '');
         
-        pool.getConnection(function(err, connection) {
-            if (err) {
-              console.error('error connecting: ' + err.stack);
-              return;
-            }      
-            console.log('connected as id ' + connection.threadId); 
-            connection.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+        var promise = db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
                                 VALUES(?,?,?,?,?,?,?)
-                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio)`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
-                function (error){
-                    if (error) throw error;
-                
-                connection.release();                  
-            });
-        });
-    });
-})
+                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio)`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku])
+                        .then(
+                            function handleResults(results){
+
+                            },
+                            function handleError(error){
+
+                            }
+                        );
+        Q.allSettled(promise);
+    })
+}).then(function(){        
+    pool.end();  
+});
 
 async function fetchData(url){
     console.log("Crawling data...")
