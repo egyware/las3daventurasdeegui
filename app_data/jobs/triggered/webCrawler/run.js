@@ -1,10 +1,19 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const mysql = require('mysql');
+const fs = require('fs')
 
 
 //constantes
-var connectionString = process.env.MYSQLCONNSTR_localdb || 'mysql://egui:passwd@localhost/las3daventuras';
+const filename = 'D:\\home\\data\\mysql\\mysql\\MYSQLCONNSTR_localdb.txt';
+var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
+if(fs.existsSync(filename))
+{
+    fs.readFile(filename, 'utf8', function(err, data) {
+        if (err) throw err;
+        connectionString = data;
+    });
+}
 
 if(!connectionString.startsWith('mysql://')) {
     let pairs = connectionString.split(';');
@@ -42,7 +51,8 @@ fetchData(url).then( (res) => {
             }      
             console.log('connected as id ' + connection.threadId); 
             connection.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                             VALUES(?,?,?,?,?,?,?)`,[4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
+                                VALUES(?,?,?,?,?,?,?)
+                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio)`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku], 
                 function (error){
                     if (error) throw error;
                 
