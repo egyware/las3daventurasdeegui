@@ -1,13 +1,13 @@
-const axios = require('axios');
 const cheerio = require('cheerio');
 const mysql = require('mysql');
+const axios = require('axios');
 const fs = require('fs')
 var Q = require( "q" );
 
 
 //constantes
-const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
+const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 if(fs.existsSync(filename))
 {
     connectionString = fs.readFileSync(filename, { encoding:'utf8', flag:'r'});        
@@ -57,7 +57,7 @@ fetchData(url).then( (res) => {
         
         var promise = db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
                                 VALUES(?,?,?,?,?,?,?)
-                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = CURTIME()`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku])
+                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku])
                         .then(
                             function handleResults(results){
 
