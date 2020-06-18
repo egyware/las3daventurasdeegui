@@ -44,6 +44,8 @@ fetchData(url).then( (res) => {
     const html = res.data;
     const $ = cheerio.load(html);
     const productos = $('.wrap-caluga-matrix');
+
+    var promises = []
     productos.each(function() {
         let producto = $(this);        
         
@@ -55,20 +57,24 @@ fetchData(url).then( (res) => {
         
         var promise = db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
                                 VALUES(?,?,?,?,?,?,?)
-                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio)`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku])
+                                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = CURTIME()`, [4, sku, nombre, marca, stock, precio, 'https://www.pcfactory.cl/producto/'+sku])
                         .then(
                             function handleResults(results){
 
                             },
                             function handleError(error){
-
+                                console.error(error);
                             }
-                        );
-        Q.allSettled(promise);
-    })
-}).then(function(){        
-    pool.end();  
-});
+                        ); 
+        promises.push(promise);
+    }); //end producto each
+    Q
+    .allSettled(promises)
+    .then(function(){        
+            pool.end();  
+        });
+    });
+
 
 async function fetchData(url){
     console.log("Crawling data...")
