@@ -40,30 +40,28 @@ var db = {
 };
 
 //parche para iniciar la base de datos
-fetchData('https://las3daventurasdeegui.azurewebsites.net/')
-.then(crawler);
-
-const regex = /\/[Pp][Rr][Oo][Dd][Uu][Cc][Tt][Oo]\//g;
-let keywords = /(PLA)|(TPU)|(filamento)/i;
+//fetchData('https://las3daventurasdeegui.azurewebsites.net/')
+//.then(crawler);
+crawler()
 
 var enlacesVisitados = [];
-async function scrap(enlaces) {
-    siguientesEnlaces = [];    
-    var promesas = enlaces.map(function(enlace){        
+async function scrap(crawlerData, enlaces) {
+    var promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
         enlacesVisitados.push(enlace);
+
         var promesa = fetchData(enlace).then((res) => {
             const html = res.data;
             const $ = cheerio.load(html);
-            const hrefs = $('a');
-            
-            //revisar otros enlaces
+            const hrefs = $('a');            
+            //revisar otros enlaces            
+            var siguientesEnlaces = [];              
             hrefs.each(function(){
-                let href = $(this).attr('href');
-                if(typeof href !== 'undefined' && regex.test(href))
-                {   
-                    if(keywords.test(href))
-                    {
+                let href = $(this).attr('href');                
+                if(typeof href !== 'undefined' && crawlerData.validLinks.test(href))
+                {                       
+                    if(crawlerData.validProducts.test(href))
+                    {                       
                         let nuevoEnlace = url.resolve(enlace, href);
                         if(!enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
                         {
@@ -71,49 +69,44 @@ async function scrap(enlaces) {
                         }
                     }            
                 }
-            });
-            
-            //revisar si existen fichas de producto
-            let producto = $('.ficha_producto');            
-            if(producto.length > 0){                
-                let sku    = producto.find('.ficha_titulos > p > span').text().replace(/\s+/g, ' ');                
-                let marca  = producto.find('.ficha_titulos > h1 > span:first-child').text().replace(/\s+/g, ' ');                
-                let nombre = producto.find('.ficha_titulos > h1 > span:last-child').text().replace(/\s+/g, ' ');                
-                let precio = producto.find('.ficha_precio_normal > h2').text().replace(/\s+/g, ' ').replace(/[\.$]/g, '');
-                let stock  = producto.find(".ficha_producto_tiendas > ul > li > a[href^='tiendas'] :last-child").toArray().map(function(currentValue) { return parseInt($(currentValue).text().replace(/[\s\+\.a-zA-Z]+/g, '')); }).reduce((a,b)=> a+b, 0);
-                promesa.then(db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                                         VALUES(?,?,?,?,?,?,?)
-                                         ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                                         [4, sku, nombre, marca, stock, precio, enlace]))
-                        .then(
-                            function handleResults(results){
-
-                            },
-                            function handleError(error){                                      
-                                console.error(error);
-                            }
-                        ); 
-            }
+            });            
+            return siguientesEnlaces;
+        }).then(function(siguientesEnlaces){
+            if (siguientesEnlaces.length > 0)
+                return scrap(crawlerData, siguientesEnlaces)
         });
         return (promesa);
-    });
-    Q
-    .allSettled(promesas)
-    .then(function(){
-        if (siguientesEnlaces.length > 0)
-            return scrap(siguientesEnlaces)
-    }).catch(function (error) {
-        // We get here with either foo's error or bar's error
-        console.log(error);
-    }).done(function(){        
-        pool.end();  
-    });    
+    }); //end map
+    await Q.allSettled(promesas);    
+    return promesas;
 }
 
 async function crawler(){    
 
-    var enlaces = ["https://www.pcfactory.cl/buscar?valor=filamento"];
-    await scrap(enlaces);
+    db.query(`SELECT id, crawler FROM proveedores WHERE crawler IS NOT NULL`)
+       .then(
+            function handleResults(results){
+                results = results[0]; // no me gustan esta clase de parches...
+                results = results.map(currentValue => { 
+                    let crawlerData = JSON.parse(currentValue.crawler);                                        
+                    crawlerData.id  = currentValue.id; //el id
+                    crawlerData.validLinks    = new RegExp(crawlerData.validLinks, 'i');
+                    crawlerData.validProducts = new RegExp(crawlerData.validProducts, 'i');                    
+                    return crawlerData;
+                });           
+                return results;
+            },
+            function handleError(error){                                      
+                console.error(error);
+            }
+        ).then(async function(results){
+            var promesas = results.map(function(crawlerData) {
+                return scrap(crawlerData, crawlerData.origenes);
+            });
+            await Q.allSettled(promesas);
+        }).done(function(){        
+                 pool.end();  
+        });
 }
 
 async function fetchData(url){
