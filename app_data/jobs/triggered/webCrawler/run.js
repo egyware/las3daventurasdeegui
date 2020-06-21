@@ -42,7 +42,8 @@ var db = {
 
 //parche para iniciar la base de datos
 fetchData('https://las3daventurasdeegui.azurewebsites.net/')
-.then(crawler);
+.then(crawler)
+.catch(console.err);;
 
 var enlacesVisitados = [];
 async function scrap(crawlerData, enlaces) {
@@ -99,12 +100,11 @@ async function scrap(crawlerData, enlaces) {
         }).then(function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
                 return scrap(crawlerData, siguientesEnlaces)
-        }).catch(function(err){
-            console.log(err);
-        });
+        }).catch(console.err);
         return (promesa);
     }); //end map
-    await Q.allSettled(promesas);    
+    await Q.allSettled(promesas)
+           .catch(console.err);;    
     return promesas;
 }
 
@@ -132,7 +132,8 @@ async function crawler(){
             var promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
             });
-            await Q.allSettled(promesas);
+            await Q.allSettled(promesas)
+                   .catch(console.err);
         }).done(function(){        
             pool.end();  
         });
