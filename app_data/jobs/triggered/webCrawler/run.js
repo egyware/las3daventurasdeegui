@@ -2,8 +2,9 @@ const cheerio = require('cheerio');
 const mysql = require('mysql');
 const axios = require('axios');
 const url   = require('url');
-const Q     = require( "q" );
-const fs    = require('fs')
+const fs    = require('fs');
+const vm    = require('vm');
+const Q     = require('q');
 
 
 //constantes
@@ -40,9 +41,8 @@ var db = {
 };
 
 //parche para iniciar la base de datos
-//fetchData('https://las3daventurasdeegui.azurewebsites.net/')
-//.then(crawler);
-crawler()
+fetchData('https://las3daventurasdeegui.azurewebsites.net/')
+.then(crawler);
 
 var enlacesVisitados = [];
 async function scrap(crawlerData, enlaces) {
@@ -69,11 +69,38 @@ async function scrap(crawlerData, enlaces) {
                         }
                     }            
                 }
-            });            
+            });
+
+            //creando una caja de arena para ejecutar scripts de la base de datos
+            var sandbox = {                
+                $: $,
+                enlace:enlace,
+                save: function(sku, nombre, marca, stock, precio, enlace){
+                    promesa.then(db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                    VALUES(?,?,?,?,?,?,?)
+                    ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
+                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace]))
+                    .then(
+                        function handleResults(results){
+
+                        },
+                        function handleError(error){                                      
+                            console.error(error);
+                        }
+                    );
+                    //console.log([crawlerData.id, sku, nombre, marca, stock, precio, enlace]);
+                }    
+            };
+            
+            var context = new vm.createContext(sandbox);            
+            crawlerData.script.runInContext(context);
+
             return siguientesEnlaces;
         }).then(function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
                 return scrap(crawlerData, siguientesEnlaces)
+        }).catch(function(err){
+            console.log(err);
         });
         return (promesa);
     }); //end map
@@ -83,15 +110,17 @@ async function scrap(crawlerData, enlaces) {
 
 async function crawler(){    
 
-    db.query(`SELECT id, crawler FROM proveedores WHERE crawler IS NOT NULL`)
+    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL`)
        .then(
             function handleResults(results){
                 results = results[0]; // no me gustan esta clase de parches...
                 results = results.map(currentValue => { 
                     let crawlerData = JSON.parse(currentValue.crawler);                                        
-                    crawlerData.id  = currentValue.id; //el id
+                    crawlerData.id     = currentValue.id; //el id
+                    crawlerData.script = new vm.Script(currentValue.script);
                     crawlerData.validLinks    = new RegExp(crawlerData.validLinks, 'i');
                     crawlerData.validProducts = new RegExp(crawlerData.validProducts, 'i');                    
+                    
                     return crawlerData;
                 });           
                 return results;
@@ -105,7 +134,7 @@ async function crawler(){
             });
             await Q.allSettled(promesas);
         }).done(function(){        
-                 pool.end();  
+            pool.end();  
         });
 }
 
