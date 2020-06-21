@@ -23,30 +23,44 @@ if(!connectionString.startsWith('mysql://')) {
         let pair = item.split('=');
         Object.assign(connectionProperties,  { [pair[0].replace(/ /g, '')]: pair[1].replace(/#/g, '%23') });
     });    
-    connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}`    
+    connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}?connectionLimit=3`
 }
 
 var pool = mysql.createPool(connectionString);
+pool.on('acquire', function (connection) {
+  console.log('Connection %d acquired', connection.threadId);
+});
+pool.on('connection', function (connection) {
+    console.log('Connection %d connection', connection.threadId);
+  //connection.query('SET SESSION auto_increment_increment=1')
+});
+pool.on('enqueue', function () {
+  console.log('Waiting for available connection slot');
+});
+pool.on('release', function (connection) {
+  console.log('Connection %d released', connection.threadId);
+});
 
 var db = {
     query: function( sql, params ) {
         var deferred = Q.defer();
-
-        // CAUTION: When using the node-resolver, the records and fields get passed into
-        // the resolution handler as an array.
-        pool.query( sql, params, deferred.makeNodeResolver() );
-
-        return( deferred.promise );
+        pool.query(sql, params, function (err, results) {
+            if (err) {
+                deferred.reject(new Error(err));
+            }
+            deferred.resolve(results);
+        });
+        return deferred.promise;       
     }
 };
 
 //parche para iniciar la base de datos
 fetchData('https://las3daventurasdeegui.azurewebsites.net/')
 .then(crawler)
-.catch(console.err);;
+.catch(console.log.bind(console))
 
 var enlacesVisitados = [];
-async function scrap(crawlerData, enlaces) {
+function scrap(crawlerData, enlaces) {
     var promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
         enlacesVisitados.push(enlace);
@@ -77,20 +91,16 @@ async function scrap(crawlerData, enlaces) {
                 $: $,
                 enlace:enlace,
                 save: function(sku, nombre, marca, stock, precio, enlace){
-                    promesa.then(db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                    var promesa = db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
                     VALUES(?,?,?,?,?,?,?)
                     ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace]))
+                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
                     .then(
                         function handleResults(results){
-
-                        },
-                        function handleError(error){                                      
-                            console.error(error);
-                        }
-                    );
-                    //console.log([crawlerData.id, sku, nombre, marca, stock, precio, enlace]);
-                }    
+                        })
+                    .catch(console.log.bind(console));
+                    promesas.push(promesa);
+                }
             };
             
             var context = new vm.createContext(sandbox);            
@@ -99,13 +109,14 @@ async function scrap(crawlerData, enlaces) {
             return siguientesEnlaces;
         }).then(function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
-                return scrap(crawlerData, siguientesEnlaces)
-        }).catch(console.err);
+            {
+                return Q.allSettled(scrap(crawlerData, siguientesEnlaces))
+            }
+        })
+        .catch(console.log.bind(console));
         return (promesa);
     }); //end map
-    await Q.allSettled(promesas)
-           .catch(console.err);;    
-    return promesas;
+    return Q.all(promesas);
 }
 
 async function crawler(){    
@@ -113,7 +124,6 @@ async function crawler(){
     db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL`)
        .then(
             function handleResults(results){
-                results = results[0]; // no me gustan esta clase de parches...
                 results = results.map(currentValue => { 
                     let crawlerData = JSON.parse(currentValue.crawler);                                        
                     crawlerData.id     = currentValue.id; //el id
@@ -128,14 +138,15 @@ async function crawler(){
             function handleError(error){                                      
                 console.error(error);
             }
-        ).then(async function(results){
+        ).then(function(results){            
             var promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
             });
-            await Q.allSettled(promesas)
-                   .catch(console.err);
-        }).done(function(){        
-            pool.end();  
+            return Q.allSettled(promesas);
+        })
+        .catch(console.log.bind(console))
+        .done(function(){        
+             pool.end();  
         });
 }
 
