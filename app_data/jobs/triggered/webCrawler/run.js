@@ -1,47 +1,21 @@
+const db = require('../../../../database.js')
 const cheerio = require('cheerio');
-const mysql = require('mysql');
 const axios = require('axios');
 const url   = require('url');
-const fs    = require('fs');
 const vm    = require('vm');
 const Q     = require('q');
 
 
-
 //constantes
-var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
-const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 
-if(fs.existsSync(filename))
-{
-    connectionString = fs.readFileSync(filename, { encoding:'utf8', flag:'r'});        
-}
+// var admin = require("firebase-admin");
 
-if(!connectionString.startsWith('mysql://')) {
-    let pairs = connectionString.split(';');
-    let connectionProperties = {}
-    pairs.forEach(function(item){
-        let pair = item.split('=');
-        Object.assign(connectionProperties,  { [pair[0].replace(/ /g, '')]: pair[1].replace(/#/g, '%23') });
-    });    
-    connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}?connectionLimit=3`
-}
+// var serviceAccount = require("las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7");
 
-var pool = mysql.createPool(connectionString);
-
-var db = {
-    query: function( sql, params ) {
-        var deferred = Q.defer();
-        pool.query(sql, params, function (err, results) {
-            if (err) {
-                console.log(sql, params);
-                deferred.reject(new Error(err));
-            }
-            deferred.resolve(results);
-        });
-        return deferred.promise;       
-    }
-};
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+//   databaseURL: "https://las3daventurasdeegui.firebaseio.com"
+// });
 
 //parche para iniciar la base de datos
 fetchData('https://las3daventurasdeegui.azurewebsites.net/')
@@ -91,10 +65,12 @@ function scrap(crawlerData, enlaces) {
                             if(resultado.stock > stock)
                             {
                                 //llegó stock
+                                console.log('llego stock');
                             }
                             if(resultado.precio > precio)
                             {
                                 //bajo el precio
+                                console.log('bajo precio');
                             }
                         }
                     })
@@ -103,7 +79,7 @@ function scrap(crawlerData, enlaces) {
                                     ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
                                     [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
                         .then(function(results){
-                            console.log("Insert:", results);
+                            //console.log("Insert:", results);
                         }))                    
                     .catch(console.log.bind(console));                    
                     promesas.push(promesa);
@@ -157,7 +133,7 @@ async function crawler(){
         })
         .catch(console.log.bind(console))
         .done(function(){        
-             pool.end();  
+             db.end();  
         });
 }
 
