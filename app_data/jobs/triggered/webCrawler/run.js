@@ -27,25 +27,13 @@ if(!connectionString.startsWith('mysql://')) {
 }
 
 var pool = mysql.createPool(connectionString);
-pool.on('acquire', function (connection) {
-  console.log('Connection %d acquired', connection.threadId);
-});
-pool.on('connection', function (connection) {
-    console.log('Connection %d connection', connection.threadId);
-  //connection.query('SET SESSION auto_increment_increment=1')
-});
-pool.on('enqueue', function () {
-  console.log('Waiting for available connection slot');
-});
-pool.on('release', function (connection) {
-  console.log('Connection %d released', connection.threadId);
-});
 
 var db = {
     query: function( sql, params ) {
         var deferred = Q.defer();
         pool.query(sql, params, function (err, results) {
             if (err) {
+                console.log(sql, params);
                 deferred.reject(new Error(err));
             }
             deferred.resolve(results);
@@ -74,9 +62,9 @@ function scrap(crawlerData, enlaces) {
             hrefs.each(function(){
                 let href = $(this).attr('href');                
                 if(typeof href !== 'undefined' && crawlerData.validLinks.test(href))
-                {                       
+                {       
                     if(crawlerData.validProducts.test(href))
-                    {                       
+                    {                           
                         let nuevoEnlace = url.resolve(enlace, href);
                         if(!enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
                         {
@@ -91,20 +79,42 @@ function scrap(crawlerData, enlaces) {
                 $: $,
                 enlace:enlace,
                 save: function(sku, nombre, marca, stock, precio, enlace){
-                    var promesa = db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                    VALUES(?,?,?,?,?,?,?)
-                    ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
-                    .then(
-                        function handleResults(results){
-                        })
-                    .catch(console.log.bind(console));
+                    var promesa = 
+                    db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ? and (Stock <> ? or Precio <> ?)`, [crawlerData.id, sku, stock, precio])
+                    .then(function(results)
+                    {
+                        if(results.length > 0)
+                        {
+                            let resultado = results[0];
+                            
+                            if(resultado.stock > stock)
+                            {
+                                //llegó stock
+                            }
+                            if(resultado.precio > precio)
+                            {
+                                //bajo el precio
+                            }
+                        }
+                    })
+                    .then(db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                                    VALUES(?,?,?,?,?,?,?)
+                                    ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
+                                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
+                        .then(function(results){
+                            console.log(results);
+                        }))                    
+                    .catch(console.log.bind(console));                    
                     promesas.push(promesa);
                 }
             };
-            
-            var context = new vm.createContext(sandbox);            
-            crawlerData.script.runInContext(context);
+                        
+            try {
+                var context = new vm.createContext(sandbox);            
+                crawlerData.script.runInContext(context);
+            } catch (e) {
+                console.log(e.message + "\n", enlace);                
+            }
 
             return siguientesEnlaces;
         }).then(function(siguientesEnlaces){
@@ -121,7 +131,7 @@ function scrap(crawlerData, enlaces) {
 
 async function crawler(){    
 
-    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL`)
+    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id NOT IN(4,10,5)`)
        .then(
             function handleResults(results){
                 results = results.map(currentValue => { 
@@ -153,8 +163,7 @@ async function crawler(){
 async function fetchData(url){
     console.log("Crawling ", url)
     // make http call to url
-    let response = await axios(url).catch((err) => console.log(err));
-
+    let response = await axios(url).catch((err) => console.log(err));    
     if(response.status !== 200){
         console.log("Error occurred while fetching data");
         return;
