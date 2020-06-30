@@ -52,6 +52,7 @@ function scrap(crawlerData, enlaces) {
             //creando una caja de arena para ejecutar scripts de la base de datos
             var sandbox = {                
                 $: $,
+                jQuery: $, //alias
                 enlace:enlace,
                 save: function(sku, nombre, marca, stock, precio, enlace){
                     var promesa = 
