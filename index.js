@@ -36,10 +36,14 @@ app.get('/api/proveedores', function(req, res){
           return;
         }      
         console.log('connected as id ' + connection.threadId);    
-        connection.query('SELECT * FROM Proveedores', function (error, results, fields) {
+        connection.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
+                        FROM proveedores AS P
+                        LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
+                        GROUP BY P.id`,
+        function (error, results, fields) {
             if (error) throw error;
             // connected!
-            res.json(results);   
+                res.json(results);   
 
             connection.release();
         });

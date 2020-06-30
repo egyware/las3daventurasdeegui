@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,8 +20,34 @@
             <p>Sigueme en instagram <a href="https://www.instagram.com/las3daventurasdeegui/">@las3daventurasdeegui</a></p>
         </div>        
     </div>
-    <script>       
-        $(function(){            
+    <script defer> 
+            function obtenerToken(){
+                messaging.getToken().then((currentToken) => {
+                    if (currentToken) {
+                        console.log(currentToken);                    
+                    } else {
+                        // Show permission request.
+                        console.log('No Instance ID token available. Request permission to generate one.');                
+                    }
+                }).catch((err) => {
+                    console.log('An error occurred while retrieving token. ', err);                   
+                });
+            }                  
+            function notificaciones()
+            {
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted.');
+                            obtenerToken();                        
+                    } else {
+                        console.log('Unable to get permission to notify.');
+                    }                
+                });
+            }
+            // messaging.onMessage((payload) => {
+            //     console.log('Message received. ', payload);                    
+            // });
+            
             $.ajax({
                 url: "/api/proveedores",
             }).done(function($data) {
@@ -30,24 +55,23 @@
                 $data.forEach(function($item){
                     const newItem = 
                         `<div class="col-12 col-md-4 p-2">
-                            <div class="card" style="max-height:285px">                            
+                            <div class="card" style="height:285px;max-height:285px">                            
                                 <div class="card-header">
                                 <h5 class="card-title text-truncate">
-                                    <img class="img-fluid" style="max-height:1.75rem" src="${$item.favicon}" />
+                                    ${ $item.favicon != null ? `<img class="img-fluid" style="max-height:1.75rem" src="${$item.favicon}" />`: `` }
                                     <a href="${$item.website}">${$item.empresa}</a>
                                 </h5>
                                 </div>
                                 <div class="card-body text-left" style="height:180px;overflow-y:auto">                                                                              
                                     <p>${$item.descripcion}</p>                                
                                 </div>                            
-                                <div class="card-footer"><a href="/stock/${$item.id}">Ver Stock</a></div>
+                                ${$item.scrapedProductos > 0 ? `<div class="card-footer"><a href="/stock/${$item.id}">Ver Stock</a></div>`: ``}
                             </div>
                         </div>`;                        
                     html.push(newItem);                        
                 })
                 $('#tiendas').html(html.join(""));
-            });
-        });
+            });        
     </script>    
 </body>
 </html>

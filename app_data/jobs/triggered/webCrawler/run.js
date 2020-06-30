@@ -7,6 +7,7 @@ const vm    = require('vm');
 const Q     = require('q');
 
 
+
 //constantes
 var connectionString = 'mysql://egui:passwd@localhost/las3daventuras';
 const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
@@ -102,7 +103,7 @@ function scrap(crawlerData, enlaces) {
                                     ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
                                     [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
                         .then(function(results){
-                            console.log(results);
+                            console.log("Insert:", results);
                         }))                    
                     .catch(console.log.bind(console));                    
                     promesas.push(promesa);
@@ -131,7 +132,7 @@ function scrap(crawlerData, enlaces) {
 
 async function crawler(){    
 
-    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id NOT IN(4,10,5)`)
+    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id`)
        .then(
             function handleResults(results){
                 results = results.map(currentValue => { 

@@ -17,38 +17,7 @@ const messaging = firebase.messaging();
 messaging.usePublicVapidKey("BM3pCRquJ5ofZ8B8ntgXT2rgG8hZEv0upNuxvCw40NvzXqGe8JgjEB-ouvQ9IGWDZDn4jomDCJXjeG-U7Ns3PBw");
 
 
-Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
-      // TODO(developer): Retrieve an Instance ID token for use with FCM.
-      // [START_EXCLUDE]
-      // In many cases once an app has been granted notification permission,
-      // it should update its UI reflecting this.
-      //resetUI();
-      // [END_EXCLUDE]
 
-      messaging.getToken().then((currentToken) => {
-    if (currentToken) {
-        console.log(currentToken);
-      //sendTokenToServer(currentToken);
-      //updateUIForPushEnabled(currentToken);
-    } else {
-      // Show permission request.
-      console.log('No Instance ID token available. Request permission to generate one.');
-      // Show permission UI.
-      //updateUIForPushPermissionRequired();
-      //setTokenSentToServer(false);
-    }
-  }).catch((err) => {
-    console.log('An error occurred while retrieving token. ', err);
-    //showToken('Error retrieving Instance ID token. ', err);
-    //setTokenSentToServer(false);
-  });
-
-    } else {
-      console.log('Unable to get permission to notify.');
-    }
-  });
 
 //   messaging.onTokenRefresh(() => {
 //     messaging.getToken().then((refreshedToken) => {
