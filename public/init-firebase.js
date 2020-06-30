@@ -29,6 +29,7 @@ Notification.requestPermission().then((permission) => {
 
       messaging.getToken().then((currentToken) => {
     if (currentToken) {
+        console.log(currentToken);
       //sendTokenToServer(currentToken);
       //updateUIForPushEnabled(currentToken);
     } else {
