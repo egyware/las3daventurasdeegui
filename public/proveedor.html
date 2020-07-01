@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,8 +8,9 @@
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 </head>
 <body>
-    <div class="container" p-4>        
-        <h2>Stock</h2>
+    <div class="container" p-4>                
+        <h2 id="proveedor" style="display: inline-block; margin-left:0.5rem; margin-top:0.5rem; margin-bottom: 0px;">Proveedor</h2>        
+        <p id="descripcion"></p>
         <table class="table" id="stock">
                 <thead>
                     <tr>
@@ -33,7 +33,17 @@
             let pathNames = window.location.pathname.split('/');
             let proveedorId = pathNames[pathNames.length-1];
             $.ajax({
-                url: "/api/stock/" + proveedorId,
+                url: `/api/proveedor/${proveedorId}`,
+            }).done(function(proveedor) {
+                if(proveedor.favicon != null)
+                {
+                    $(`<img class="img-fluid" src="${proveedor.favicon}" />`).insertBefore('#proveedor');
+                }
+                $('#proveedor').text(proveedor.empresa);
+                $('#descripcion').text(proveedor.descripcion)
+            });
+            $.ajax({
+                url: `/api/stock/${proveedorId}`,
             }).done(function($data) {
                 var html = [];
                 $data.forEach(function(item){
