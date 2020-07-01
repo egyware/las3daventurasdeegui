@@ -1,34 +1,101 @@
-const db = require('../../../../database.js')
+const db    = require('../../../../database.js')
+const admin = require("firebase-admin");
 const cheerio = require('cheerio');
 const axios = require('axios');
 const url   = require('url');
 const vm    = require('vm');
 const Q     = require('q');
 
+var serviceAccount = require("../../../../las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7.json");
 
-//constantes
+admin.initializeApp({
+   credential: admin.credential.cert(serviceAccount),
+   databaseURL: "https://las3daventurasdeegui.firebaseio.com"
+});
 
-// var admin = require("firebase-admin");
+//https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages?hl=es
+// var message = {
+//     notification: {
+//         title: "Breaking News",
+//         body: "New news story available.",
+//         image: "1_500.jpg"
+//     },
+//     webpush: {
+//       fcm_options: {
+//         link: "https://las3daventurasdeegui.azurewebsites.net/"
+//       }
+//     },
+//     token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
+// };
 
-// var serviceAccount = require("las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7");
+//   admin.messaging().send(message)
+//   .then((response) => {
+//     // Response is a message ID string.
+//     console.log('Successfully sent message:', response);
+//   })
+//   .catch((error) => {
+//     console.log('Error sending message:', error);
+//   });
 
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-//   databaseURL: "https://las3daventurasdeegui.firebaseio.com"
-// });
+function groupBy(xs, key) {
+    return xs.reduce(function(rv, x) {
+      (rv[x[key]] = rv[x[key]] || []).push(x);
+      return rv;
+    }, {});
+  };
+
+function obtenerTitulo(tipo)
+{                              
+    switch(tipo)
+    {
+        case "SINSTOCK":
+            return 'Stock agotado'
+        case "REBAJA":
+            return 'REBAJA EN EL PRECIO!!';
+        case "HAYSTOCK":
+            return 'Stock Disponible';
+        case "NUEVO":
+            return  'Nuevo producto disponible'
+        default:
+            return tipo;
+    }    
+}
+
+function obtenerDescripcion(tipo, proveedorNombre)
+{                              
+    switch(tipo)
+    {
+        case "SINSTOCK":
+            return `Se ha agotado el stock en ${proveedorNombre}`
+        case "REBAJA":
+            return `Existen productos en rebajas en ${proveedorNombre}`;
+        case "HAYSTOCK":
+            return `Acaba de llegar stock a ${proveedorNombre}`;
+        case "NUEVO":
+            return  `Nuevos productos en ${proveedorNombre}`;
+        default:
+            return tipo;
+    }    
+}
+
+function concatena(text, value, i, array) {
+    return text + (i < array.length - 1 ? ', ' : ' y ') + value;
+}
 
 //parche para iniciar la base de datos
 fetchData('https://las3daventurasdeegui.azurewebsites.net/')
 .then(crawler)
 .catch(console.log.bind(console))
 
+var notificaciones = [];
 var enlacesVisitados = [];
 function scrap(crawlerData, enlaces) {
     var promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
         enlacesVisitados.push(enlace);
 
-        var promesa = fetchData(enlace).then((res) => {
+        var promesa = fetchData(enlace)
+        .then((res) => {
             const html = res.data;
             const $ = cheerio.load(html);
             const hrefs = $('a');            
@@ -56,32 +123,56 @@ function scrap(crawlerData, enlaces) {
                 enlace:enlace,
                 save: function(sku, nombre, marca, stock, precio, enlace){
                     var promesa = 
-                    db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ? and (Stock <> ? or Precio <> ?)`, [crawlerData.id, sku, stock, precio])
+                    db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
                     .then(function(results)
                     {
+                        let notificacion = {
+                            proveedorId: crawlerData.id,
+                            proveedorNombre: crawlerData.empresa,
+                            sku: sku,
+                            nombre: nombre,
+                            marca: marca,                            
+                            tipo: null,
+                            descripcion: null                           
+                        }
                         if(results.length > 0)
                         {
-                            let resultado = results[0];
+                            let resultado = results[0];                            
                             
-                            if(resultado.stock > stock)
+                            if(resultado.Stock > 0 && stock == 0)
+                            {                              
+                                notificacion.tipo      = "SINSTOCK"; 
+                                notificacion.descripcion = `Se acabó ${nombre}`;
+                            }else
+                            if(resultado.Precio > precio)
                             {
-                                //llegó stock
-                                console.log('llego stock');
+                                notificacion.tipo = "REBAJA"; 
+                                notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
+                            }else
+                            if(resultado.Stock < stock)
+                            {                           
+                                notificacion.tipo = "HAYSTOCK"; 
+                                notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
                             }
-                            if(resultado.precio > precio)
-                            {
-                                //bajo el precio
-                                console.log('bajo precio');
-                            }
+                        }else{
+                            notificacion.tipo = "NUEVO";
+                            notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
+                        }                                              
+                        if(notificacion.tipo != null)
+                        {
+                            notificaciones.push(notificacion);
                         }
+
                     })
-                    .then(db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                    .then(function(){
+                        return db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
                                     VALUES(?,?,?,?,?,?,?)
                                     ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
                                     [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
                         .then(function(results){
                             //console.log("Insert:", results);
-                        }))                    
+                        });
+                    })                    
                     .catch(console.log.bind(console));                    
                     promesas.push(promesa);
                 }
@@ -109,13 +200,14 @@ function scrap(crawlerData, enlaces) {
 
 async function crawler(){    
 
-    db.query(`SELECT id, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id`)
+    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id = 5`)
        .then(
             function handleResults(results){
                 results = results.map(currentValue => { 
                     let crawlerData = JSON.parse(currentValue.crawler);                                        
-                    crawlerData.id     = currentValue.id; //el id
-                    crawlerData.script = new vm.Script(currentValue.script);
+                    crawlerData.id      = currentValue.id; //el id
+                    crawlerData.empresa = currentValue.empresa;
+                    crawlerData.script  = new vm.Script(currentValue.script);
                     crawlerData.validLinks    = new RegExp(crawlerData.validLinks, 'i');
                     crawlerData.validProducts = new RegExp(crawlerData.validProducts, 'i');                    
                     
@@ -125,14 +217,81 @@ async function crawler(){
             },
             function handleError(error){                                      
                 console.error(error);
-            }
-        ).then(function(results){            
+            })
+        .then(function(results){            
             var promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
             });
             return Q.allSettled(promesas);
         })
-        .catch(console.log.bind(console))
+        .then(function(){            
+            if(notificaciones.length > 0){
+                let notificacionesProveedores = groupBy(notificaciones, 'proveedorId');
+                for (let [proveedorId, notificacionesProveedor] of Object.entries(notificacionesProveedores)) {                    
+                    let notificacionesTipos = Object.entries(groupBy(notificacionesProveedor, 'tipo'));                    
+                    if(notificacionesTipos.length == 1) //si hay un solo tipo lo notificamos
+                    {                   
+                        let notificacionesTipo = notificacionesTipos[0];
+                        let tipo           = notificacionesTipo[0];
+                        let notificaciones = notificacionesTipo[1]; //no confundir con la variable del scope anterior                        
+                        let message = {
+                            notification: {
+                                title: obtenerTitulo(tipo),
+                                body: obtenerDescripcion(tipo, notificaciones[0].proveedorNombre) //se puede sacar de forma segura del primero
+                            },
+                            webpush: {
+                                fcm_options: {
+                                    link: `https://las3daventurasdeegui.azurewebsites.net/stock/${proveedorId}`
+                                }
+                            },
+                            token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
+                        };
+
+                        if(notificaciones.length == 1) //si hay una sola, reemplazamos la notificacion por defecto
+                        {
+                            message.notification.body = notificaciones[0].descripcion;
+                        }
+
+                        console.log(message);
+                        admin.messaging().send(message)
+                        .then((response) => {
+                        // Response is a message ID string.
+                        console.log('Successfully sent message:', response);
+                        })
+                        .catch((error) => {
+                        console.log('Error sending message:', error);
+                        });
+                    } else { //si hay varios tipos
+                            let notificacionesTipo = notificacionesTipos[0];
+                            //let tipo           = notificacionesTipo[0];
+                            let notificaciones = notificacionesTipo[1];                            
+                            let message = {
+                                notification: {
+                                    title: `HAY NOVEDADES EN ${notificaciones[0].proveedorNombre}`,
+                                    body: `LLegó más filamento? o hay rebajas? haz click acá para enterarte`
+                                },
+                                webpush: {
+                                    fcm_options: {
+                                        link: `https://las3daventurasdeegui.azurewebsites.net/stock/${proveedorId}`
+                                    }
+                                },
+                                token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
+                            };
+                            
+                            console.log(message);
+                            admin.messaging().send(message)
+                            .then((response) => {
+                            // Response is a message ID string.
+                            console.log('Successfully sent message:', response);
+                            })
+                            .catch((error) => {
+                            console.log('Error sending message:', error);
+                            });
+                    }                  
+                };                
+            }
+        })
+        .catch(console.log.bind(console))        
         .done(function(){        
              db.end();  
         });
@@ -141,10 +300,10 @@ async function crawler(){
 async function fetchData(url){
     console.log("Crawling ", url)
     // make http call to url
-    let response = await axios(url).catch((err) => console.log(err));    
-    if(response.status !== 200){
+    let response = await axios(url);    
+    if(typeof response === 'undefined' || response.status !== 200){
         console.log("Error occurred while fetching data");
-        return;
+        throw new Error(`Cannot fetch: ${url}`);
     }
     return response;
 }
