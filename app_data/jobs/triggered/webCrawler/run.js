@@ -1,6 +1,7 @@
 const db    = require('../../../../database.js')
 const admin = require("firebase-admin");
 const cheerio = require('cheerio');
+var stdio   = require('stdio');
 const axios = require('axios');
 const url   = require('url');
 const vm    = require('vm');
@@ -199,8 +200,12 @@ function scrap(crawlerData, enlaces) {
 }
 
 async function crawler(){    
-
-    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL and id = 5`)
+    const options = stdio.getopt({
+        'proveedores': {key: 'p', args: '*', description: 'Lista de proveedores a revisar', multiple: true}
+    });
+    if(typeof options.proveedores !== 'object') options.proveedores = [ options.proveedores];
+       
+    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${typeof options.proveedores !==  'undefined' ? `and id IN (${options.proveedores.join(',')})`: ''}`)
        .then(
             function handleResults(results){
                 results = results.map(currentValue => { 
