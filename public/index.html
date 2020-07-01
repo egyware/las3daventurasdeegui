@@ -65,7 +65,7 @@
                                 <div class="card-body text-left" style="height:180px;overflow-y:auto">                                                                              
                                     <p>${$item.descripcion}</p>                                
                                 </div>                            
-                                ${$item.scrapedProductos > 0 ? `<div class="card-footer"><a href="/stock/${$item.id}">Ver Stock</a></div>`: ``}
+                                ${$item.scrapedProductos > 0 ? `<div class="card-footer"><a href="/proveedor/${$item.id}">Ver Stock</a></div>`: ``}
                             </div>
                         </div>`;                        
                     html.push(newItem);                        

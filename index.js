@@ -13,8 +13,8 @@ const port = process.env.PORT || 1337;
 //codigo
 app.use(express.static('public'));
 
-app.get('/stock/:id', function(req, res){
-    res.sendFile(path.join(__dirname, 'public', 'stock.html'));
+app.get('/proveedor/:id', function(req, res){
+    res.sendFile(path.join(__dirname, 'public', 'proveedor.html'));
 });
 app.get('/api/proveedores', function(req, res){    
     db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos

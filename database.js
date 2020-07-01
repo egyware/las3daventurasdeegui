@@ -36,7 +36,7 @@ module.exports = {
         });
         return deferred.promise;       
     },
-    end: function(){
+    end: function(){        
         pool.end();
     }
 };

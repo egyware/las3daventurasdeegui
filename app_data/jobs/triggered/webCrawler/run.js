@@ -96,7 +96,7 @@ function scrap(crawlerData, enlaces) {
         enlacesVisitados.push(enlace);
 
         var promesa = fetchData(enlace)
-        .then((res) => {
+        .then(async (res) => {
             const html = res.data;
             const $ = cheerio.load(html);
             const hrefs = $('a');            
@@ -117,13 +117,14 @@ function scrap(crawlerData, enlaces) {
                 }
             });
 
-            //creando una caja de arena para ejecutar scripts de la base de datos
-            var sandbox = {                
+            //creando una caja de arena para ejecutar scripts de la base de datos            
+            let promesasSandbox = [];
+            let sandbox = {                
                 $: $,
                 jQuery: $, //alias
                 enlace:enlace,
                 save: function(sku, nombre, marca, stock, precio, enlace){
-                    var promesa = 
+                    let promesaSave = 
                     db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
                     .then(function(results)
                     {
@@ -175,7 +176,7 @@ function scrap(crawlerData, enlaces) {
                         });
                     })                    
                     .catch(console.log.bind(console));                    
-                    promesas.push(promesa);
+                    promesasSandbox.push(promesaSave);
                 }
             };
                         
@@ -184,8 +185,9 @@ function scrap(crawlerData, enlaces) {
                 crawlerData.script.runInContext(context);
             } catch (e) {
                 console.log(e.message + "\n", enlace);                
-            }
-
+            }            
+            //esperamos todas las promesas hechas en esta iteración antes de pasar a la siguiente
+            await Q.allSettled(promesasSandbox);
             return siguientesEnlaces;
         }).then(function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
@@ -246,7 +248,7 @@ async function crawler(){
                             },
                             webpush: {
                                 fcm_options: {
-                                    link: `https://las3daventurasdeegui.azurewebsites.net/stock/${proveedorId}`
+                                    link: `https://las3daventurasdeegui.azurewebsites.net/proveedor/${proveedorId}`
                                 }
                             },
                             token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
@@ -297,8 +299,9 @@ async function crawler(){
             }
         })
         .catch(console.log.bind(console))        
-        .done(function(){        
-             db.end();  
+        .done(function(){
+            console.log('db end')
+            db.end();  
         });
 }
 
