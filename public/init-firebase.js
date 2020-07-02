@@ -19,17 +19,17 @@ messaging.usePublicVapidKey("BM3pCRquJ5ofZ8B8ntgXT2rgG8hZEv0upNuxvCw40NvzXqGe8Jg
 
 
 
-//   messaging.onTokenRefresh(() => {
-//     messaging.getToken().then((refreshedToken) => {
-//       console.log('Token refreshed.');
-//       // Indicate that the new Instance ID token has not yet been sent to the
-//       // app server.
-//       //setTokenSentToServer(false);
-//       // Send Instance ID token to app server.
-//       //sendTokenToServer(refreshedToken);
-//       // ...
-//     }).catch((err) => {
-//       console.log('Unable to retrieve refreshed token ', err);
-//       //showToken('Unable to retrieve refreshed token ', err);
-//     });
-//   });
+  messaging.onTokenRefresh(() => {
+    messaging.getToken().then((refreshedToken) => {
+      console.log('Token refreshed.');
+      // Indicate that the new Instance ID token has not yet been sent to the
+      // app server.
+      //setTokenSentToServer(false);
+      // Send Instance ID token to app server.
+      //sendTokenToServer(refreshedToken);
+      // ...
+    }).catch((err) => {
+      console.log('Unable to retrieve refreshed token ', err);
+      //showToken('Unable to retrieve refreshed token ', err);
+    });
+  });
