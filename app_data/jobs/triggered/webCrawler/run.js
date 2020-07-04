@@ -7,38 +7,12 @@ const url   = require('url');
 const vm    = require('vm');
 const Q     = require('q');
 
-var serviceAccount = require("../../../../las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7.json");
+const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS || '../../../../las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7.json');
 
 const app = admin.initializeApp({
    credential: admin.credential.cert(serviceAccount),
    databaseURL: "https://las3daventurasdeegui.firebaseio.com"
 });
-
-
-
-//https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages?hl=es
-// var message = {
-//     notification: {
-//         title: "Breaking News",
-//         body: "New news story available.",
-//         image: "1_500.jpg"
-//     },
-//     webpush: {
-//       fcm_options: {
-//         link: "https://las3daventurasdeegui.azurewebsites.net/"
-//       }
-//     },
-//     token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
-// };
-
-//   admin.messaging().send(message)
-//   .then((response) => {
-//     // Response is a message ID string.
-//     console.log('Successfully sent message:', response);
-//   })
-//   .catch((error) => {
-//     console.log('Error sending message:', error);
-//   });
 
 function groupBy(xs, key) {
     return xs.reduce(function(rv, x) {
@@ -207,9 +181,10 @@ async function crawler(){
     const options = stdio.getopt({
         'proveedores': {key: 'p', args: '*', description: 'Lista de proveedores a revisar', multiple: true}
     });
+    if(typeof options.proveedores === 'undefined') options.proveedores = [];
     if(typeof options.proveedores !== 'object') options.proveedores = [ options.proveedores];
-       
-    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${typeof options.proveedores !==  'undefined' ? `and id IN (${options.proveedores.join(',')})`: ''}`)
+    
+    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${options.proveedores.length > 0 ? `and id IN (${options.proveedores.join(',')})`: ''}`)
        .then(
             function handleResults(results){
                 results = results.map(currentValue => { 
@@ -281,18 +256,20 @@ async function crawler(){
                             },
                             webpush: {
                                 fcm_options: {
-                                    link: `https://las3daventurasdeegui.azurewebsites.net/stock/${proveedorId}`
+                                    link: `https://las3daventurasdeegui.azurewebsites.net/proveedor/${proveedorId}`
                                 }
                             },
                             tokens: tokens
                         };
-                        
+
                         return message;                                              
                     }                  
                 };                
             }
+            return null;
         })
         .then(async function(message){
+            if(message == null) return; //no hacer nada
             await admin.messaging().sendMulticast(message)
                 .then((response) => {
                     // Response is a message ID string.
