@@ -33,9 +33,16 @@
             function obtenerToken(){
                 messaging.getToken().then((currentToken) => {
                     if (currentToken) {
-                        console.log(currentToken);                    
-                    } else {
-                        // Show permission request.
+                        $.ajax({
+                            url: "/api/subcribirse",
+                            method: 'POST',
+                            data: {
+                                token: currentToken
+                            }
+                        }).done(function() { 
+                            console.log('Subscrito', currentToken);
+                        })
+                    } else {                       
                         console.log('No Instance ID token available. Request permission to generate one.');                
                     }
                 }).catch((err) => {

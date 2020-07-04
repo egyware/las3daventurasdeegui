@@ -48,6 +48,7 @@ app.get('/api/stock/:id', function(req, res){
     })
     .catch(console.log.bind(console));
 });
+
 app.post('/api/proveedores', function(req, res){
     db.query('INSERT INTO `proveedores` (`website`, `empresa`, `descripcion`) VALUES(?, ?, ?)',[req.body.website, req.body.nombre, req.body.descripcion])
     .then(function(){        
@@ -55,6 +56,22 @@ app.post('/api/proveedores', function(req, res){
     })
     .catch(console.log.bind(console));
 });
+
+app.post('/api/subcribirse', function(req, res){
+    db.query('INSERT INTO `subscriptores` (`token`) VALUES(?)',[req.body.token])
+    .then(function(){        
+        res.sendStatus(200);
+    })
+    .catch(console.log.bind(console));
+});
+
+// app.delete('/api/subcribirse', function(req, res){
+//     db.query('DELETE `subscriptores` where token = ?',[req.body.token])
+//     .then(function(){        
+//         res.sendStatus(200);
+//     })
+//     .catch(console.log.bind(console));
+// });
 
 const server = app.listen(port, function() {
     console.log("Server running at http://localhost:%d", port);

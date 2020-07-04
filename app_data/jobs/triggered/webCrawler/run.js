@@ -9,10 +9,12 @@ const Q     = require('q');
 
 var serviceAccount = require("../../../../las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7.json");
 
-admin.initializeApp({
+const app = admin.initializeApp({
    credential: admin.credential.cert(serviceAccount),
    databaseURL: "https://las3daventurasdeegui.firebaseio.com"
 });
+
+
 
 //https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages?hl=es
 // var message = {
@@ -225,13 +227,13 @@ async function crawler(){
             function handleError(error){                                      
                 console.error(error);
             })
-        .then(function(results){            
+        .then(async function(results){            
             var promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
             });
-            return Q.allSettled(promesas);
+            await Q.allSettled(promesas);
         })
-        .then(function(){            
+        .then(async function(){            
             if(notificaciones.length > 0){
                 let notificacionesProveedores = groupBy(notificaciones, 'proveedorId');
                 for (let [proveedorId, notificacionesProveedor] of Object.entries(notificacionesProveedores)) {                    
@@ -251,23 +253,28 @@ async function crawler(){
                                     link: `https://las3daventurasdeegui.azurewebsites.net/proveedor/${proveedorId}`
                                 }
                             },
-                            token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
+                            tokens: null
                         };
-
+                        
                         if(notificaciones.length == 1) //si hay una sola, reemplazamos la notificacion por defecto
                         {
                             message.notification.body = notificaciones[0].descripcion;
                         }
 
-                        console.log(message);
-                        admin.messaging().send(message)
-                        .then((response) => {
-                        // Response is a message ID string.
-                        console.log('Successfully sent message:', response);
+                        
+                        await db.query(`select token from subscriptores`)
+                        .then(async function(results){
+                            message.tokens = results.map(currentValue => currentValue.token);                            
+                            await admin.messaging().sendMulticast(message)
+                            .then((response) => {
+                                // Response is a message ID string.
+                                console.log('Successfully sent message:', response);
+                            })
+                            .catch((error) => {
+                                console.log('Error sending message:', error);
+                            })                                                
                         })
-                        .catch((error) => {
-                        console.log('Error sending message:', error);
-                        });
+                        
                     } else { //si hay varios tipos
                             let notificacionesTipo = notificacionesTipos[0];
                             //let tipo           = notificacionesTipo[0];
@@ -282,26 +289,29 @@ async function crawler(){
                                         link: `https://las3daventurasdeegui.azurewebsites.net/stock/${proveedorId}`
                                     }
                                 },
-                                token: "c3OB4cT08X1mVgmBEPgJZn:APA91bHWjq0kbUbahLdy7oTu53ZT404MlYtPvDkJRRTejU4kRJ16k31i8OOOlojkNsL2TDNN4psHkgk68JiFJaieoqcsc7v62EDXjrN1C7-CYoN3WLclA_GLU9A9ZHY5w7HwcRPob3p6"
+                                tokens: null
                             };
-                            
-                            console.log(message);
-                            admin.messaging().send(message)
-                            .then((response) => {
-                            // Response is a message ID string.
-                            console.log('Successfully sent message:', response);
+
+                             db.query(`select token from subscriptores`)
+                            .then(async function(results){
+                                message.tokens = results.map(currentValue => currentValue.token);                                
+                                await admin.messaging().sendMulticast(message)
+                                .then((response) => {
+                                    // Response is a message ID string.
+                                    console.log('Successfully sent message:', response);
+                                })
+                                .catch((error) => {
+                                    console.log('Error sending message:', error);
+                                });                                
                             })
-                            .catch((error) => {
-                            console.log('Error sending message:', error);
-                            });
                     }                  
                 };                
             }
         })
         .catch(console.log.bind(console))        
-        .done(function(){
-            console.log('db end')
+        .done(function(){            
             db.end();  
+            app.delete();
         });
 }
 
