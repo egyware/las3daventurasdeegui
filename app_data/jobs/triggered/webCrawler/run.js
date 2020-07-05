@@ -302,7 +302,7 @@ async function crawler(){
 async function obtenerPagina(url){    
     console.log('obtenerPagina:', url);
     let response = 
-        await axios(url,{timeout: 10000}).catch(function(err) { return null; }); 
+        await axios(url,{timeout: 30000}).catch(function(err) { return null; }); 
     if(response == null || response.status !== 200) 
         throw new Error(`No se puede obtener: ${url}`);
     return response;
