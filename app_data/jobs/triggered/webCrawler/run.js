@@ -60,25 +60,100 @@ function concatena(text, value, i, array) {
 }
 
 //parche para iniciar la base de datos
-fetchData('https://las3daventurasdeegui.azurewebsites.net/')
+obtenerPagina('https://las3daventurasdeegui.azurewebsites.net/')
 .then(crawler)
 .catch(console.log.bind(console))
+
+
+async function sandbox(crawlerData, $, enlace){
+    //creando una caja de arena para ejecutar scripts de la base de datos            
+    let promesasSandbox = [];
+    let sandbox = {                
+        $: $,
+        jQuery: $, //alias
+        enlace:enlace,
+        save: function(sku, nombre, marca, stock, precio, enlace){
+            let promesaSave = 
+            db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
+            .then(function(results)
+            {
+                let notificacion = {
+                    proveedorId: crawlerData.id,
+                    proveedorNombre: crawlerData.empresa,
+                    sku: sku,
+                    nombre: nombre,
+                    marca: marca,                            
+                    tipo: null,
+                    descripcion: null                           
+                }
+                if(results.length > 0)
+                {
+                    let resultado = results[0];                            
+                    
+                    if(resultado.Stock > 0 && stock == 0)
+                    {                              
+                        notificacion.tipo      = "SINSTOCK"; 
+                        notificacion.descripcion = `Se acabó ${nombre}`;
+                    }else
+                    if(resultado.Precio > precio)
+                    {
+                        notificacion.tipo = "REBAJA"; 
+                        notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
+                    }else
+                    if(resultado.Stock < stock)
+                    {                           
+                        notificacion.tipo = "HAYSTOCK"; 
+                        notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
+                    }
+                }else{
+                    notificacion.tipo = "NUEVO";
+                    notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
+                }                                              
+                if(notificacion.tipo != null)
+                {
+                    notificaciones.push(notificacion);
+                }
+
+            })
+            .then(function(){
+                return db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
+                            VALUES(?,?,?,?,?,?,?)
+                            ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
+                            [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
+                .then(function(results){
+                    //console.log("Insert:", results);
+                });
+            })                    
+            .catch(console.log.bind(console));                    
+            promesasSandbox.push(promesaSave);
+        }
+    };
+                
+    try {
+        var context = new vm.createContext(sandbox);            
+        crawlerData.script.runInContext(context);
+    } catch (e) {
+        console.log('Sandbox:', e.message, enlace);                
+    }            
+    //esperamos todas las promesas hechas en esta iteración antes de pasar a la siguiente
+    await Q.allSettled(promesasSandbox);
+}
 
 var notificaciones = [];
 var enlacesVisitados = [];
 var anchorLinkRegex = /#.*?$/i
-function scrap(crawlerData, enlaces) {
-    var promesas = enlaces.map(function(enlace){
+async function scrap(crawlerData, enlaces) {    
+    let promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
         enlacesVisitados.push(enlace);
 
-        var promesa = fetchData(enlace)
+        let promesa = obtenerPagina(enlace)
         .then(async (res) => {
             const html = res.data;
             const $ = cheerio.load(html);
             const hrefs = $('a');            
             //revisar otros enlaces            
-            var siguientesEnlaces = [];              
+            let siguientesEnlaces = [];              
             hrefs.each(function(){
                 let href = $(this).attr('href');
                 if(typeof href !== 'undefined')
@@ -95,88 +170,21 @@ function scrap(crawlerData, enlaces) {
                 }
             });
 
-            //creando una caja de arena para ejecutar scripts de la base de datos            
-            let promesasSandbox = [];
-            let sandbox = {                
-                $: $,
-                jQuery: $, //alias
-                enlace:enlace,
-                save: function(sku, nombre, marca, stock, precio, enlace){
-                    let promesaSave = 
-                    db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
-                    .then(function(results)
-                    {
-                        let notificacion = {
-                            proveedorId: crawlerData.id,
-                            proveedorNombre: crawlerData.empresa,
-                            sku: sku,
-                            nombre: nombre,
-                            marca: marca,                            
-                            tipo: null,
-                            descripcion: null                           
-                        }
-                        if(results.length > 0)
-                        {
-                            let resultado = results[0];                            
-                            
-                            if(resultado.Stock > 0 && stock == 0)
-                            {                              
-                                notificacion.tipo      = "SINSTOCK"; 
-                                notificacion.descripcion = `Se acabó ${nombre}`;
-                            }else
-                            if(resultado.Precio > precio)
-                            {
-                                notificacion.tipo = "REBAJA"; 
-                                notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
-                            }else
-                            if(resultado.Stock < stock)
-                            {                           
-                                notificacion.tipo = "HAYSTOCK"; 
-                                notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
-                            }
-                        }else{
-                            notificacion.tipo = "NUEVO";
-                            notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
-                        }                                              
-                        if(notificacion.tipo != null)
-                        {
-                            notificaciones.push(notificacion);
-                        }
+            await sandbox(crawlerData, $, enlace);
 
-                    })
-                    .then(function(){
-                        return db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                                    VALUES(?,?,?,?,?,?,?)
-                                    ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                                    [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
-                        .then(function(results){
-                            //console.log("Insert:", results);
-                        });
-                    })                    
-                    .catch(console.log.bind(console));                    
-                    promesasSandbox.push(promesaSave);
-                }
-            };
-                        
-            try {
-                var context = new vm.createContext(sandbox);            
-                crawlerData.script.runInContext(context);
-            } catch (e) {
-                console.log(e.message + "\n", enlace);                
-            }            
-            //esperamos todas las promesas hechas en esta iteración antes de pasar a la siguiente
-            await Q.allSettled(promesasSandbox);
             return siguientesEnlaces;
-        }).then(function(siguientesEnlaces){
+        }).then(async function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
             {
-                return Q.allSettled(scrap(crawlerData, siguientesEnlaces))
+                await scrap(crawlerData, siguientesEnlaces);
             }
         })
-        .catch(console.log.bind(console));
-        return (promesa);
+        .catch(function(err){
+            console.log('Scrap:', err.message);
+        });
+        return promesa;
     }); //end map
-    return Q.all(promesas);
+    await Q.allSettled(promesas);        
 }
 
 async function crawler(){    
@@ -188,7 +196,7 @@ async function crawler(){
     
     db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${options.proveedores.length > 0 ? `and id IN (${options.proveedores.join(',')})`: ''}`)
        .then(
-            function handleResults(results){
+            function (results){
                 results = results.map(currentValue => { 
                     let crawlerData = JSON.parse(currentValue.crawler);                                        
                     crawlerData.id      = currentValue.id; //el id
@@ -200,14 +208,11 @@ async function crawler(){
                     return crawlerData;
                 });           
                 return results;
-            },
-            function handleError(error){                                      
-                console.error(error);
             })
         .then(async function(results){            
-            var promesas = results.map(function(crawlerData) {
+            let promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
-            });
+            });            
             await Q.allSettled(promesas);
         })
         .then(async function(){
@@ -221,7 +226,7 @@ async function crawler(){
         .then(function(tokens){     
             if(notificaciones.length > 0){
                 let notificacionesProveedores = groupBy(notificaciones, 'proveedorId');
-
+                let messages = []
                 for (let [proveedorId, notificacionesProveedor] of Object.entries(notificacionesProveedores)) {                    
                     let notificacionesTipos = Object.entries(groupBy(notificacionesProveedor, 'tipo'));                    
                     if(notificacionesTipos.length == 1) //si hay un solo tipo lo notificamos
@@ -247,7 +252,7 @@ async function crawler(){
                             message.notification.body = notificaciones[0].descripcion;
                         }
 
-                        return message;                        
+                        messages.push(message);
                     } else { //si hay varios tipos                        
                         let notificacionesTipo = notificacionesTipos[0];
                         //let tipo           = notificacionesTipo[0];
@@ -265,37 +270,40 @@ async function crawler(){
                             tokens: tokens
                         };
 
-                        return message;                                              
+                        messages.push(message);
                     }                  
-                };                
+                }
+                return messages;                
             }
             return null;
         })
-        .then(async function(message){
-            if(message == null) return; //no hacer nada
-            await admin.messaging().sendMulticast(message)
-                .then((response) => {
-                    // Response is a message ID string.
-                    console.log('Successfully sent message:', response);
-                })
-                .catch((error) => {
-                    console.log('Error sending message:', error);
-                })
+        .then(async function(messages){
+            if(messages == null) return; //no hacer nada
+            let messagePromises = messages.map( message => 
+                admin.messaging().sendMulticast(message)
+                    .then((response) => {
+                        // Response is a message ID string.
+                        console.log('Successfully sent message:', response);
+                    })
+                    .catch((error) => {
+                        console.log('Error sending message:', error);
+                    })
+                )            
+            await Q.allSettled(messagePromises);
         })
         .catch(console.log.bind(console))        
         .done(function(){            
+            console.log('Job finalizado');
             db.end();  
             app.delete();
         });
 }
 
-async function fetchData(url){
-    console.log("Crawling ", url)
-    // make http call to url
-    let response = await axios(url);    
-    if(typeof response === 'undefined' || response.status !== 200){
-        console.log("Error occurred while fetching data");
-        throw new Error(`Cannot fetch: ${url}`);
-    }
+async function obtenerPagina(url){    
+    console.log('obtenerPagina:', url);
+    let response = 
+        await axios(url,{timeout: 10000}).catch(function(err) { return null; }); 
+    if(response == null || response.status !== 200) 
+        throw new Error(`No se puede obtener: ${url}`);
     return response;
 }
