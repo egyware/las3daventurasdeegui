@@ -66,6 +66,7 @@ fetchData('https://las3daventurasdeegui.azurewebsites.net/')
 
 var notificaciones = [];
 var enlacesVisitados = [];
+var anchorLinkRegex = /#.*?$/i
 function scrap(crawlerData, enlaces) {
     var promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
@@ -79,12 +80,13 @@ function scrap(crawlerData, enlaces) {
             //revisar otros enlaces            
             var siguientesEnlaces = [];              
             hrefs.each(function(){
-                let href = $(this).attr('href');                
-                if(typeof href !== 'undefined' && crawlerData.validLinks.test(href))
+                let href = $(this).attr('href');
+                if(typeof href !== 'undefined')
                 {       
-                    if(crawlerData.validProducts.test(href))
-                    {                           
-                        let nuevoEnlace = url.resolve(enlace, href);
+                    let nuevoEnlace = url.resolve(enlace, href);
+                    nuevoEnlace = nuevoEnlace.replace(anchorLinkRegex, ''); //borramos todos los # que no, nos sirven ni aportan en nada.
+                    if(crawlerData.validLinks.test(nuevoEnlace) && crawlerData.validProducts.test(nuevoEnlace))
+                    {                                                   
                         if(!enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
                         {
                             siguientesEnlaces.push(nuevoEnlace);
@@ -219,6 +221,7 @@ async function crawler(){
         .then(function(tokens){     
             if(notificaciones.length > 0){
                 let notificacionesProveedores = groupBy(notificaciones, 'proveedorId');
+
                 for (let [proveedorId, notificacionesProveedor] of Object.entries(notificacionesProveedores)) {                    
                     let notificacionesTipos = Object.entries(groupBy(notificacionesProveedor, 'tipo'));                    
                     if(notificacionesTipos.length == 1) //si hay un solo tipo lo notificamos
