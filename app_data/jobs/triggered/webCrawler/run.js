@@ -105,7 +105,7 @@ async function sandbox(crawlerData, $, enlace){
                         notificacion.tipo = "HAYSTOCK"; 
                         notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
                     }
-                }else{
+                }else if(stock > 0) { //solo si vale la pena
                     notificacion.tipo = "NUEVO";
                     notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
                 }                                              

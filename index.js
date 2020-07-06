@@ -42,7 +42,8 @@ app.get('/api/proveedores', function(req, res){
 app.get('/api/stock/:id', function(req, res){
     db.query(`SELECT Nombre, Marca, Stock, Precio, Link
               FROM Stock                          
-              WHERE ProveedorId = ?`, [req.params.id])
+              WHERE ProveedorId = ?
+              ORDER BY Stock DESC`, [req.params.id])
     .then(function (results) {            
         res.json(results);
     })
