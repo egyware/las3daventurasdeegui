@@ -2,53 +2,56 @@ const db      = require('./database.js')
 const express = require('express');
 const path = require('path');
 const Q    = require('q');
+const tl   = require('express-tl')
 var app = express();
 
+app.engine('tl', tl)
+app.set('views', './views') // specify the views directory
+app.set('view engine', 'tl') // register the template engine
 app.use(express.json())
 app.use(express.urlencoded())
 
 //constantes
 const port = process.env.PORT || 1337;
 
-//codigo
-app.use(express.static('public'));
+
+app.get('/', function(req, res){
+
+    db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
+        FROM proveedores AS P
+        LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)       
+        GROUP BY P.id`)
+    .then(function(results) {       
+        res.render('index', {
+            proveedores: results
+        })
+    })
+    .catch(console.log.bind(console));    
+});
 
 app.get('/proveedor/:id', function(req, res){
-    res.sendFile(path.join(__dirname, 'public', 'proveedor.html'));
-});
-app.get('/api/proveedor/:id', function(req, res){    
     db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
                 FROM proveedores AS P
                 LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
                 WHERE P.id = ?
                 GROUP BY P.id`, [req.params.id])
-    .then(function(results) {                    
-        res.json(results.length>0?results[0]: null);
+    .then(async function(results) {    
+        let stock = 
+            await db.query(`SELECT Nombre, Marca, Stock, Precio, Link
+                            FROM Stock                          
+                            WHERE ProveedorId = ?
+                            ORDER BY Stock DESC`, [req.params.id]);        
+        res.render('proveedor', {
+            proveedor: results.length>0?results[0]: null,
+            stock:stock
+        })        
     })
     .catch(console.log.bind(console));
 });
 
-app.get('/api/proveedores', function(req, res){    
-    db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
-                FROM proveedores AS P
-                LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
-                GROUP BY P.id`)
-    .then(function(results) {            
-        res.json(results);
-    })
-    .catch(console.log.bind(console));
-});
 
-app.get('/api/stock/:id', function(req, res){
-    db.query(`SELECT Nombre, Marca, Stock, Precio, Link
-              FROM Stock                          
-              WHERE ProveedorId = ?
-              ORDER BY Stock DESC`, [req.params.id])
-    .then(function (results) {            
-        res.json(results);
-    })
-    .catch(console.log.bind(console));
-});
+//codigo
+app.use(express.static('public'));
 
 app.post('/api/proveedores', function(req, res){
     db.query('INSERT INTO `proveedores` (`website`, `empresa`, `descripcion`) VALUES(?, ?, ?)',[req.body.website, req.body.nombre, req.body.descripcion])

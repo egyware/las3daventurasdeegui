@@ -260,7 +260,7 @@ async function crawler(){
                         let message = {
                             notification: {
                                 title: `HAY NOVEDADES EN ${notificaciones[0].proveedorNombre}`,
-                                body: `LLegó más filamento? o hay rebajas? haz click acá para enterarte`
+                                body: `Llegó más filamento? o hay rebajas? haz click acá para enterarte`
                             },
                             webpush: {
                                 fcm_options: {
