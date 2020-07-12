@@ -64,6 +64,20 @@ obtenerPagina('https://las3daventurasdeegui.azurewebsites.net/')
 .then(crawler)
 .catch(console.log.bind(console))
 
+function hashCode(string)
+{
+    let hash = 0, i, chr;
+    for (i = 0; i < string.length; i++) {
+    chr   = string.charCodeAt(i);
+    hash  = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+}
+
+const alwaysFalse = {
+    test : function() { return false; }
+}
 
 async function sandbox(crawlerData, $, enlace){
     //creando una caja de arena para ejecutar scripts de la base de datos            
@@ -71,7 +85,9 @@ async function sandbox(crawlerData, $, enlace){
     let sandbox = {                
         $: $,
         jQuery: $, //alias
-        enlace:enlace,
+        hashCode: hashCode,
+        enlace: enlace,
+        console: console, 
         save: function(sku, nombre, marca, stock, precio, enlace){
             let promesaSave = 
             db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
@@ -130,7 +146,7 @@ async function sandbox(crawlerData, $, enlace){
     };
                 
     try {
-        var context = new vm.createContext(sandbox);            
+        var context = new vm.createContext(sandbox);        
         crawlerData.script.runInContext(context);
     } catch (e) {
         console.log('Sandbox:', e.message, enlace);                
@@ -202,8 +218,8 @@ async function crawler(){
                     crawlerData.id      = currentValue.id; //el id
                     crawlerData.empresa = currentValue.empresa;
                     crawlerData.script  = new vm.Script(currentValue.script);
-                    crawlerData.validLinks    = new RegExp(crawlerData.validLinks, 'i');
-                    crawlerData.validProducts = new RegExp(crawlerData.validProducts, 'i');                    
+                    crawlerData.validLinks    = crawlerData.validLinks    != null?new RegExp(crawlerData.validLinks, 'i'):alwaysFalse;
+                    crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysFalse;
                     
                     return crawlerData;
                 });           
