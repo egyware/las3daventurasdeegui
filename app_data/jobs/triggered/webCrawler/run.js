@@ -86,8 +86,7 @@ async function sandbox(crawlerData, $, enlace){
         $: $,
         jQuery: $, //alias
         hashCode: hashCode,
-        enlace: enlace,
-        console: console, 
+        enlace: enlace,        
         save: function(sku, nombre, marca, stock, precio, enlace){
             let promesaSave = 
             db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
@@ -177,8 +176,8 @@ async function scrap(crawlerData, enlaces) {
                     let nuevoEnlace = url.resolve(enlace, href);
                     nuevoEnlace = nuevoEnlace.replace(anchorLinkRegex, ''); //borramos todos los # que no, nos sirven ni aportan en nada.
                     if(crawlerData.validLinks.test(nuevoEnlace) && crawlerData.validProducts.test(nuevoEnlace))
-                    {                                                   
-                        if(!enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
+                    {       
+                        if(!crawlerData.invalidProducts.test(nuevoEnlace) && !enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
                         {
                             siguientesEnlaces.push(nuevoEnlace);
                         }
@@ -220,7 +219,7 @@ async function crawler(){
                     crawlerData.script  = new vm.Script(currentValue.script);
                     crawlerData.validLinks    = crawlerData.validLinks    != null?new RegExp(crawlerData.validLinks, 'i'):alwaysFalse;
                     crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysFalse;
-                    
+                    crawlerData.invalidProducts = (typeof crawlerData.invalidProducts !== 'undefined' && crawlerData.invalidProducts != null)?new RegExp(crawlerData.invalidProducts, 'i'):alwaysFalse;
                     return crawlerData;
                 });           
                 return results;
