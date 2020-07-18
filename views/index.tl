@@ -57,7 +57,12 @@
             </div>
         </div>
         <div class="row">
-            <p>Sigueme en instagram <a href="https://www.instagram.com/las3daventurasdeegui/">@las3daventurasdeegui</a></p>
+            <div class="col-8">
+                <p>Si esta página te fue útil y quieres apoyarme, puedes regalarme un cafecito de maquina en <a href="https://www.paypal.me/egyware">paypal</a> :)</p>
+            </div>
+            <div class="col-4">
+                <p>Sigueme en instagram <a href="https://www.instagram.com/las3daventurasdeegui/">@las3daventurasdeegui</a></p>
+            </div>            
         </div>        
     </div>
     <script defer> 
