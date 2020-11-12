@@ -16,19 +16,8 @@ app.use(express.static('public'));
 //constantes
 const port = process.env.PORT || 1337;
 
-// app.get('/run/:job', function(req, res){
-//     let jobPath = path.join('./jobs/', req.params.job);
-//     const job = spawn('node', [jobPath]);
-//     job.stdout.on('data', data => { 
-//         res.write(data);
-//     });
-//     job.on('close', (code) => {
-//         res.end();
-//     });
-// })
-
 app.get('/', function(req, res){
-    res.location('https://Las3dAventurasDeEgui.cl'); //redirigir a mi dominio
+    res.redirect('https://las3daventurasdeegui.cl'); //redirigir a mi dominio
 });
 
 router.get('/proveedor', async function(req, res)
