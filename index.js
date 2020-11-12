@@ -40,7 +40,7 @@ router.get('/proveedor/search', async function(req, res)
               FROM proveedores AS P              
               LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
               WHERE P.empresa like '%?%'
-              GROUP BY P.id`, [req.params.q])    
+              GROUP BY P.id`, [req.query.q])    
      .then(function(results) {       
         res.send(results);
      })
