@@ -82,17 +82,34 @@ router.get('/proveedor/:id/track', async function(req, res)
 
 router.get('/proveedor/:id/stock', async function(req, res)
 {    
-    db.query(`SELECT S.Sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, D.Precio as PrecioAnterior, D.Stock as StockAnterior, D.Fecha
-                        FROM stock as S
-                        LEFT JOIN stockdelta as D ON (S.ProveedorId = D.ProveedorId and S.Sku = D.Sku)
-                        INNER JOIN (
-                        SELECT D.sku, MIN(Fecha) as Fecha
-                        FROM stockdelta as D
-                        INNER JOIN stock as S ON (S.proveedorId = D.proveedorId and S.sku = D.sku and S.UltimaActualizacion <> D.fecha)
-                        WHERE D.ProveedorId = ?
-                        GROUP BY D.sku
-                        ) as F ON (D.sku = F.sku and D.Fecha = F.Fecha)
-                        WHERE S.ProveedorId = ?`, [ req.params.id, req.params.id ])
+    db.query(`SET @deltaRow = 0;
+    SET @deltaSku = '';
+    SET @stockRow = 0;
+    SET @stockSku = '';
+    SELECT S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.PrecioAnterior, S.StockAnterior, S.Fecha
+    FROM
+    (
+        SELECT
+            @stockRow:=CASE WHEN @stockSku = S.sku THEN @stockRow + 1 ELSE 1 END AS stockRow,		
+            @stockSku:=S.sku as sku,
+            S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, D.Precio as PrecioAnterior, D.Stock as StockAnterior, D.Fecha
+        FROM stock as S
+        INNER JOIN
+        (
+            SELECT 
+                @deltaRow:=CASE WHEN @deltaSku = sku THEN @deltaRow + 1 ELSE 1 END AS deltaRow,		
+                @deltaSku:=sku as sku,
+                ProveedorId,
+                Fecha,
+                Precio,
+                Stock        
+            FROM
+                stockdelta
+            ORDER BY ProveedorId, sku, fecha
+        ) as D ON (S.ProveedorId = D.ProveedorId and S.sku = D.Sku)
+        WHERE D.deltaRow <= 2
+    ) as S
+    WHERE S.ProveedorId = 4 and S.stockRow = 1`, [ req.params.id ])
     .then(function(results) {       
         res.send(results);
     })
