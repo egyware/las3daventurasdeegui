@@ -75,6 +75,9 @@ function hashCode(string)
     return hash;
 }
 
+const alwaysTrue = {
+    test : function() { return true; }
+}
 const alwaysFalse = {
     test : function() { return false; }
 }
@@ -172,11 +175,11 @@ async function scrap(crawlerData, enlaces) {
             hrefs.each(function(){
                 let href = $(this).attr('href');
                 if(typeof href !== 'undefined')
-                {       
-                    let nuevoEnlace = url.resolve(enlace, href);
-                    nuevoEnlace = nuevoEnlace.replace(anchorLinkRegex, ''); //borramos todos los # que no, nos sirven ni aportan en nada.
+                {   
+                    let nuevoEnlace = url.resolve(enlace, href);                    
+                    nuevoEnlace = nuevoEnlace.replace(anchorLinkRegex, ''); //borramos todos los # que no, nos sirven ni aportan en nada.                    
                     if(crawlerData.validLinks.test(nuevoEnlace) && crawlerData.validProducts.test(nuevoEnlace))
-                    {       
+                    {   
                         if(!crawlerData.invalidProducts.test(nuevoEnlace) && !enlacesVisitados.includes(nuevoEnlace) && !siguientesEnlaces.includes(nuevoEnlace))
                         {
                             siguientesEnlaces.push(nuevoEnlace);
@@ -218,7 +221,7 @@ async function crawler(){
                     crawlerData.empresa = currentValue.empresa;
                     crawlerData.script  = new vm.Script(currentValue.script);
                     crawlerData.validLinks    = crawlerData.validLinks    != null?new RegExp(crawlerData.validLinks, 'i'):alwaysFalse;
-                    crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysFalse;
+                    crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysTrue;
                     crawlerData.invalidProducts = (typeof crawlerData.invalidProducts !== 'undefined' && crawlerData.invalidProducts != null)?new RegExp(crawlerData.invalidProducts, 'i'):alwaysFalse;
                     return crawlerData;
                 });           
