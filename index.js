@@ -32,7 +32,7 @@ router.get('/proveedor', async function(req, res)
      .catch(function(err) {
          res.status(500).send(err.message);
      });
-})
+});
 
 router.get('/proveedor/search', async function(req, res)
 {
@@ -47,7 +47,7 @@ router.get('/proveedor/search', async function(req, res)
      .catch(function(err) {
          res.status(500).send(err.message);
      });
-})
+});
 
 router.get('/proveedor/:id', async function(req, res)
 {
@@ -62,7 +62,7 @@ router.get('/proveedor/:id', async function(req, res)
      .catch(function(err) {
          res.status(500).send(err.message);
      });
-})
+});
 
 router.get('/proveedor/:id/track', async function(req, res)
 {
@@ -78,7 +78,7 @@ router.get('/proveedor/:id/track', async function(req, res)
      .catch(function(err) {
          res.status(500).send(err.message);
      });
-})
+});
 
 router.get('/proveedor/:id/stock', async function(req, res)
 {    
