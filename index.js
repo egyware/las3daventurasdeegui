@@ -82,34 +82,37 @@ router.get('/proveedor/:id/track', async function(req, res)
 
 router.get('/proveedor/:id/stock', async function(req, res)
 {    
-    db.query(`SET @deltaRow = 0;
-    SET @deltaSku = '';
-    SET @stockRow = 0;
-    SET @stockSku = '';
-    SELECT S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.PrecioAnterior, S.StockAnterior, S.Fecha
+    await db.query(`SET @deltaRow = 0`)
+    await db.query(`SET @stockRow = 0`)
+    await db.query(`SET @deltaSku = ''`)
+    await db.query(`SET @stockSku = ''`)
+    await db.query(`SELECT
+        S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.PrecioAnterior, S.StockAnterior, S.Fecha
     FROM
     (
-        SELECT
+        SELECT		
             @stockRow:=CASE WHEN @stockSku = S.sku THEN @stockRow + 1 ELSE 1 END AS stockRow,		
             @stockSku:=S.sku as sku,
+            D.deltaRow,
             S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, D.Precio as PrecioAnterior, D.Stock as StockAnterior, D.Fecha
         FROM stock as S
         INNER JOIN
         (
             SELECT 
                 @deltaRow:=CASE WHEN @deltaSku = sku THEN @deltaRow + 1 ELSE 1 END AS deltaRow,		
-                @deltaSku:=sku as sku,
+                @deltaSku:=sku as sku,        
                 ProveedorId,
                 Fecha,
                 Precio,
                 Stock        
             FROM
                 stockdelta
-            ORDER BY ProveedorId, sku, fecha
+            ORDER BY ProveedorId, sku, fecha DESC
         ) as D ON (S.ProveedorId = D.ProveedorId and S.sku = D.Sku)
         WHERE D.deltaRow <= 2
+       ORDER BY ProveedorId, S.sku, D.Fecha ASC
     ) as S
-    WHERE S.ProveedorId = 4 and S.stockRow = 1`, [ req.params.id ])
+    WHERE S.stockRow = 1 and S.ProveedorId = ?`, [ req.params.id ])
     .then(function(results) {       
         res.send(results);
     })
