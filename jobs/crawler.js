@@ -1,5 +1,5 @@
-const db    = require('../database.js')
-const admin = require("firebase-admin");
+const firebase = require('../firebase.js')
+const api    = require('../api.js')
 const cheerio = require('cheerio');
 var stdio   = require('stdio');
 const axios = require('axios');
@@ -7,12 +7,8 @@ const url   = require('url');
 const vm    = require('vm');
 const Q     = require('q');
 
-const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS || '../las3daventurasdeegui-firebase-adminsdk-4w365-aae9a791e7.json');
 
-const app = admin.initializeApp({
-   credential: admin.credential.cert(serviceAccount),
-   databaseURL: "https://las3daventurasdeegui.firebaseio.com"
-});
+const baseUrl = 'https://las3daventurasdeegui.cl'
 
 function groupBy(xs, key) {
     return xs.reduce(function(rv, x) {
@@ -132,14 +128,18 @@ async function sandbox(crawlerData, $, enlace){
                 }
 
             })
-            .then(function(){
-                return db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                            VALUES(?,?,?,?,?,?,?)
-                            ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                            [crawlerData.id, sku, nombre, marca, stock, precio, enlace])
-                .then(function(results){
-                    //console.log("Insert:", results);
-                });
+            .then(function(){                
+
+                const articulo = { 
+                    sku,
+                    nombre,
+                    marca,
+                    stock, 
+                    precio, 
+                    enlace
+                };
+                
+                return api.updateStock(crawlerData.id, articulo);                
             })                    
             .catch(console.log.bind(console));                    
             promesasSandbox.push(promesaSave);
@@ -212,8 +212,7 @@ async function crawler(){
     if(typeof options.proveedores !== 'object') options.proveedores = [ options.proveedores];
     
     db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${options.proveedores.length > 0 ? `and id IN (${options.proveedores.join(',')})`: ''}`)
-       .then(
-            function (results){
+      .then(function (results){
                 results = results.map(currentValue => { 
                     let crawlerData = JSON.parse(currentValue.crawler);                                        
                     crawlerData.id      = currentValue.id; //el id
@@ -226,13 +225,13 @@ async function crawler(){
                 });           
                 return results;
             })
-        .then(async function(results){            
+      .then(async function(results){            
             let promesas = results.map(function(crawlerData) {
                 return scrap(crawlerData, crawlerData.origenes);
             });            
             await Q.allSettled(promesas);
-        })
-        .then(async function(){
+      })
+      .then(async function(){
             let tokens = null;
             await db.query(`select token from subscriptores`)
             .then(function(results) {
@@ -258,7 +257,7 @@ async function crawler(){
                             },
                             webpush: {
                                 fcm_options: {
-                                    link: `https://las3daventurasdeegui.azurewebsites.net/proveedor/${proveedorId}`
+                                    link: baseUrl+`/proveedor/${proveedorId}`
                                 }
                             },
                             tokens: tokens
@@ -281,7 +280,7 @@ async function crawler(){
                             },
                             webpush: {
                                 fcm_options: {
-                                    link: `https://las3daventurasdeegui.azurewebsites.net/proveedor/${proveedorId}`
+                                    link: baseUrl+`/proveedor/${proveedorId}`
                                 }
                             },
                             tokens: tokens
@@ -297,7 +296,7 @@ async function crawler(){
         .then(async function(messages){
             if(messages == null) return; //no hacer nada
             let messagePromises = messages.map( message => 
-                admin.messaging().sendMulticast(message)
+                firebase.messaging().sendMulticast(message)
                     .then((response) => {
                         // Response is a message ID string.
                         console.log('Successfully sent message:', response);
@@ -312,7 +311,7 @@ async function crawler(){
         .done(function(){            
             console.log('Job finalizado');
             db.end();  
-            app.delete();
+            firebase.delete();
         });
 }
 

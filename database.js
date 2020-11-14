@@ -9,7 +9,7 @@ const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
 
 if(fs.existsSync(filename))
 {
-    connectionString = fs.readFileSync(filename, { encoding:'utf8', flag:'r'});        
+    connectionString = fs.readFileSync(filename, { encoding:'utf8', flag:'r'});
 }
 
 if(!connectionString.startsWith('mysql://')) {
