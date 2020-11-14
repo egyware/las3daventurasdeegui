@@ -1,3 +1,4 @@
+const firebase = require('./firebase.js')
 const crypto = require('crypto');
 const db      = require('./database.js')
 const express = require('express');
@@ -80,18 +81,36 @@ apiRoute.get('/proveedor/:id', async function(req, res)
      });
 });
 
-apiRoute.get('/proveedor/:id/track', async function(req, res)
+apiRoute.get('/proveedor/:id/crawler', async function(req, res)
 {
-    //TODO
-    db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
-              FROM proveedores AS P              
-              LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
-              WHERE P.id = ?
-              GROUP BY P.id`, [req.params.id])    
+    db.query(`SELECT id, crawler, script
+              FROM proveedores
+              WHERE id = ?`, [req.params.id])    
      .then(function(results) {       
-        res.send(results);
+        if(results.length > 0)
+        {
+            const result = results[0];
+            let resultado = { id:result.id, crawler:result.crawler, script:result.script };
+            
+            //puede que sea una aproximación muy sencilla para compartir datos secretos
+            const secret = crypto.randomBytes(24);
+            const iv     = crypto.randomBytes(16);
+            const cipher = crypto.createCipheriv('aes192', secret, iv);
+
+            let encrypted = '';
+            encrypted+= cipher.update(JSON.stringify(resultado), 'utf8', 'base64');
+            encrypted+= cipher.final('base64');
+            
+            const secretKey = 
+                crypto.publicEncrypt(publicKey, secret).toString("base64");
+
+            res.send({ encrypted, secretKey, iv:iv.toString("base64") });
+        } else {
+            res.status(404).send("Proveedor no encontrado");
+        }
      })
      .catch(function(err) {
+         console.log(err);
          res.status(500).send(err.message);
      });
 });
@@ -138,8 +157,20 @@ Where StockRow = 1 and ProveedorId = ?`, [ req.params.id ])
     })
     .catch(function(err) {
         res.status(500).send(err.message);
-    });
-    
+    });    
+});
+
+apiRoute.get('/proveedor/:id/stock/:sku', async function(req, res)
+{ 
+    db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [req.params.id, req.params.sku])
+    .then(function(results)
+    {
+        res.send(results);
+    })
+    .catch(function(err) {
+        res.status(500).send(err.message);
+    });   
+
 });
 
 //subir data
@@ -178,32 +209,66 @@ apiRoute.post('/proveedor/:id/stock', async function(req, res)
     }
 });
 
-//dejaré esto aqui como plantilla, porque no lo usaré
-// apiRoute.post('/broadcast', async function(req, res)
-// {   
-//     //talvez esta comprobacion se pueda hacer en alguna parte centralizada
-//     const body = req.body;    
-//     const stringified = JSON.stringify(body.data)    
-//     const isVerified = crypto.verify(
-//         "sha256",
-//         Buffer.from(stringified),
-//         {
-//             key: publicKey,
-//             padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-//         },
-//         Buffer.from(body.signature, "base64")
-//     );
-//     //si el origen de los datos está verificado o no
-//     if(isVerified)
-//     {
-//         const message = body.data;
-      
-//     }
-//     else
-//     {
-//         res.status(401).send("No autorizado");
-//     }
-// });
+//publica un mensaje a todos
+apiRoute.post('/multicast', async function(req, res)
+{   
+    //talvez esta comprobacion se pueda hacer en alguna parte centralizada
+    const body = req.body;    
+    const stringified = JSON.stringify(body.data)    
+    const isVerified = crypto.verify(
+        "sha256",
+        Buffer.from(stringified),
+        {
+            key: publicKey,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        },
+        Buffer.from(body.signature, "base64")
+    );
+    //si el origen de los datos está verificado o no
+    if(isVerified)
+    {
+        const mensaje = body.data;
+
+        db.query(`select token from subscriptores`)
+        .then(function(results) {
+            tokens = results.map(currentValue => currentValue.token);
+            return tokens;
+        })
+        .then(async function(tokens) {            
+            let message = {
+                notification: {
+                    title: mensaje.titulo,
+                    body: mensaje.cuerpo
+                },
+                webpush: {
+                    fcm_options: {
+                        link: mensaje.enlace
+                    }
+                },
+                tokens: tokens
+            }; 
+            await firebase.messaging()
+                .sendMulticast(message)
+                .then((response) => {
+                    // Response is a message ID string.
+                    console.log('Successfully sent message:', response);
+                })
+                .catch((error) => {
+                    console.log('Error sending message:', error);
+                })
+                       
+        })
+        .catch(console.log.bind(console))        
+        .done(function(){
+            firebase.delete();
+            res.status(200).end();            
+        });
+    }
+    else
+    {
+        res.status(401).send("No autorizado");
+    }
+});
 
 //subscribirse
 
@@ -216,13 +281,13 @@ apiRoute.post('/subcribirse', function(req, res){
 });
 
 
-// // app.delete('/api/subcribirse', function(req, res){
-// //     db.query('DELETE `subscriptores` where token = ?',[req.body.token])
-// //     .then(function(){        
-// //         res.sendStatus(200);
-// //     })
-// //     .catch(console.log.bind(console));
-// // });
+// app.delete('/api/subcribirse', function(req, res){
+//     db.query('DELETE `subscriptores` where token = ?',[req.body.token])
+//     .then(function(){        
+//         res.sendStatus(200);
+//     })
+//     .catch(console.log.bind(console));
+// });
 
 const server = app.listen(port, function() {
      console.log("Server running at http://localhost:%d", port);

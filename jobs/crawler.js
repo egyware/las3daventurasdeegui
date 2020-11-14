@@ -1,4 +1,5 @@
-const firebase = require('../firebase.js')
+'use strict'
+
 const api    = require('../api.js')
 const cheerio = require('cheerio');
 var stdio   = require('stdio');
@@ -55,7 +56,7 @@ function concatena(text, value, i, array) {
     return text + (i < array.length - 1 ? ', ' : ' y ') + value;
 }
 
-crawler()
+main()
 .catch(console.log.bind(console))
 
 function hashCode(string)
@@ -87,7 +88,7 @@ async function sandbox(crawlerData, $, enlace){
         enlace: enlace,        
         save: function(sku, nombre, marca, stock, precio, enlace){
             let promesaSave = 
-            db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku = ?`, [crawlerData.id, sku])
+            api.getStock(crawlerData.id, sku)            
             .then(function(results)
             {
                 let notificacion = {
@@ -204,42 +205,37 @@ async function scrap(crawlerData, enlaces) {
     await Q.allSettled(promesas);        
 }
 
-async function crawler(){    
+async function main(){    
     const options = stdio.getopt({
         'proveedores': {key: 'p', args: '*', description: 'Lista de proveedores a revisar', multiple: true}
     });
     if(typeof options.proveedores === 'undefined') options.proveedores = [];
     if(typeof options.proveedores !== 'object') options.proveedores = [ options.proveedores];
     
-    db.query(`SELECT id, empresa, crawler, script FROM proveedores WHERE crawler IS NOT NULL ${options.proveedores.length > 0 ? `and id IN (${options.proveedores.join(',')})`: ''}`)
-      .then(function (results){
-                results = results.map(currentValue => { 
-                    let crawlerData = JSON.parse(currentValue.crawler);                                        
-                    crawlerData.id      = currentValue.id; //el id
-                    crawlerData.empresa = currentValue.empresa;
-                    crawlerData.script  = new vm.Script(currentValue.script);
-                    crawlerData.validLinks    = crawlerData.validLinks    != null?new RegExp(crawlerData.validLinks, 'i'):alwaysFalse;
-                    crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysTrue;
-                    crawlerData.invalidProducts = (typeof crawlerData.invalidProducts !== 'undefined' && crawlerData.invalidProducts != null)?new RegExp(crawlerData.invalidProducts, 'i'):alwaysFalse;
-                    return crawlerData;
-                });           
-                return results;
-            })
-      .then(async function(results){            
-            let promesas = results.map(function(crawlerData) {
-                return scrap(crawlerData, crawlerData.origenes);
-            });            
-            await Q.allSettled(promesas);
-      })
-      .then(async function(){
-            let tokens = null;
-            await db.query(`select token from subscriptores`)
-            .then(function(results) {
-                tokens = results.map(currentValue => currentValue.token);
-            })
-            return tokens;
+    let promesas =
+     options.proveedores.map(function(proveedorId) {
+        return api.crawlerInfo(proveedorId)
+        .then(function (currentValue){                        
+            let crawlerData = JSON.parse(currentValue.crawler);                                        
+            crawlerData.id      = currentValue.id; //el id
+            crawlerData.empresa = currentValue.empresa;
+            crawlerData.script  = new vm.Script(currentValue.script);
+            crawlerData.validLinks    = crawlerData.validLinks    != null?new RegExp(crawlerData.validLinks, 'i'):alwaysFalse;
+            crawlerData.validProducts = crawlerData.validProducts != null?new RegExp(crawlerData.validProducts, 'i'):alwaysTrue;
+            crawlerData.invalidProducts = (typeof crawlerData.invalidProducts !== 'undefined' && crawlerData.invalidProducts != null)?new RegExp(crawlerData.invalidProducts, 'i'):alwaysFalse;
+            return crawlerData;
         })
-        .then(function(tokens){     
+        .then(crawler)        
+    })   
+    await Q.allSettled(promesas);
+}
+
+function crawler(crawlerData)
+{
+    return Q.fcall(async function() {            
+        await scrap(crawlerData, crawlerData.origenes);            
+    })
+    .then(function(){     
             if(notificaciones.length > 0){
                 let notificacionesProveedores = groupBy(notificaciones, 'proveedorId');
                 let messages = []
@@ -250,22 +246,15 @@ async function crawler(){
                         let notificacionesTipo = notificacionesTipos[0];
                         let tipo           = notificacionesTipo[0];
                         let notificaciones = notificacionesTipo[1]; //no confundir con la variable del scope anterior                        
-                        let message = {
-                            notification: {
-                                title: obtenerTitulo(tipo),
-                                body: obtenerDescripcion(tipo, notificaciones[0].proveedorNombre) //se puede sacar de forma segura del primero
-                            },
-                            webpush: {
-                                fcm_options: {
-                                    link: baseUrl+`/proveedor/${proveedorId}`
-                                }
-                            },
-                            tokens: tokens
-                        };
-                        
+                        let message = {                            
+                                titulo: obtenerTitulo(tipo),
+                                cuerpo: obtenerDescripcion(tipo, notificaciones[0].proveedorNombre), //se puede sacar de forma segura del primero
+                                enlace: baseUrl+`/proveedor/${proveedorId}`
+                        };                            
+                                            
                         if(notificaciones.length == 1) //si hay una sola, reemplazamos la notificacion por defecto
                         {
-                            message.notification.body = notificaciones[0].descripcion;
+                            message.cuerpo = notificaciones[0].descripcion;
                         }
 
                         messages.push(message);
@@ -273,17 +262,10 @@ async function crawler(){
                         let notificacionesTipo = notificacionesTipos[0];
                         //let tipo           = notificacionesTipo[0];
                         let notificaciones = notificacionesTipo[1];                            
-                        let message = {
-                            notification: {
-                                title: `HAY NOVEDADES EN ${notificaciones[0].proveedorNombre}`,
-                                body: `Llegó más filamento? o hay rebajas? haz click acá para enterarte`
-                            },
-                            webpush: {
-                                fcm_options: {
-                                    link: baseUrl+`/proveedor/${proveedorId}`
-                                }
-                            },
-                            tokens: tokens
+                        let message = {                            
+                                titulo: `HAY NOVEDADES EN ${notificaciones[0].proveedorNombre}`,
+                                cuerpo: `Llegó más filamento? o hay rebajas? haz click acá para enterarte`,
+                                link: baseUrl+`/proveedor/${proveedorId}`
                         };
 
                         messages.push(message);
@@ -296,7 +278,7 @@ async function crawler(){
         .then(async function(messages){
             if(messages == null) return; //no hacer nada
             let messagePromises = messages.map( message => 
-                firebase.messaging().sendMulticast(message)
+                    api.multicast(message)
                     .then((response) => {
                         // Response is a message ID string.
                         console.log('Successfully sent message:', response);
@@ -309,11 +291,10 @@ async function crawler(){
         })
         .catch(console.log.bind(console))        
         .done(function(){            
-            console.log('Job finalizado');
-            db.end();  
-            firebase.delete();
+            console.log(`Tarea finalizada para ${crawlerData.id}`);            
         });
 }
+
 
 async function obtenerPagina(url){    
     console.log('obtenerPagina:', url);
