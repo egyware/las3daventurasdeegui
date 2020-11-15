@@ -8,11 +8,21 @@ const api = require('./api.js')
 let publicKey    = fs.readFileSync('public.key', { encoding:'utf8', flag:'r'});
 let privateKey   = fs.readFileSync('private.key', { encoding:'utf8', flag:'r'});
 
- api.crawlerInfo(4).then(function(crawler){
-     console.log(crawler)
+ api.multicast({
+     titulo : 'Nuevo sitio',
+     cuerpo: 'Tenemos nuevo sitio, sigue igual, pero la url es más corta https://las3daventurasdeegui.cl',
+     enlace: 'https://las3daventurasdeegui.cl'
+ })
+ .then(function(results){
+     console.log(results);
+ })
+ .catch(function(err){
+     console.log(err);
  })
 
-
+//  api.crawlerInfo(4).then(function(crawler){
+//      console.log(crawler)
+//  })
 
 //  axios({
 //          method: 'get',
@@ -69,11 +79,7 @@ let privateKey   = fs.readFileSync('private.key', { encoding:'utf8', flag:'r'});
 //     db.end()
 // });
 
-// api.multicast({
-//     titulo : 'Mensaje Importante para Javier',
-//     cuerpo: 'Deja de cobrar tan barato',
-//     enlace: 'http://localhost'
-// })
+
 
 // let message = {
 //     notification: {

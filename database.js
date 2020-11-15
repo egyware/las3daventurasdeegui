@@ -5,7 +5,7 @@ const Q     = require('q');
 //dejaré aqui todo lo que concierne a la conexión y manejo de base de datos
 
 var connectionString = process.env.MYSQLCONNSTR_localdb || 'mysql://egui:passwd@localhost/las3daventuras';
-const filename = 'D:\\home\\data\\mysql\\MYSQLCONNSTR_localdb.txt';
+const filename = '/home/lasdaven/MYSQLCONNSTR_localdb.txt';
 
 if(fs.existsSync(filename))
 {
@@ -22,9 +22,9 @@ if(!connectionString.startsWith('mysql://')) {
     connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}?connectionLimit=3`
 }
 
-var pool = mysql.createPool(connectionString);
+const pool = pool = mysql.createPool(connectionString);   ;
 
-module.exports = {
+module.exports = {    
     query: function( sql, params ) {
         var deferred = Q.defer();
         pool.query(sql, params, function (err, results) {
@@ -36,7 +36,8 @@ module.exports = {
         });
         return deferred.promise;       
     },
-    end: function(){        
-        pool.end();
+    end: function()
+    {       
+        pool.end();    
     }
 };

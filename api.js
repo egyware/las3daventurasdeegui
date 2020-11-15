@@ -3,7 +3,8 @@ const fs   = require('fs');
 const crypto = require('crypto');
 const Q    = require('q');
 
-const apiUrl = 'http://localhost:1337'
+const apiUrl = 'https://las3daventurasdeegui.cl'
+//const apiUrl = 'http://localhost:1337'
 let privateKey = fs.readFileSync('private.key', { encoding:'utf8', flag:'r'});
 
 module.exports = 

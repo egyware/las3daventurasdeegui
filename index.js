@@ -14,6 +14,10 @@ app.use(express.urlencoded())
 app.use(express.static('public'));
 app.use("/api", apiRoute);
 
+app.use(function(err, req, res, next) {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+});
 
 //constantes
 const port = process.env.PORT || 1337;
@@ -83,14 +87,14 @@ apiRoute.get('/proveedor/:id', async function(req, res)
 
 apiRoute.get('/proveedor/:id/crawler', async function(req, res)
 {
-    db.query(`SELECT id, crawler, script
+    db.query(`SELECT id, empresa, crawler, script
               FROM proveedores
               WHERE id = ?`, [req.params.id])    
      .then(function(results) {       
         if(results.length > 0)
         {
             const result = results[0];
-            let resultado = { id:result.id, crawler:result.crawler, script:result.script };
+            let resultado = { id:result.id, empresa:result.empresa, crawler:result.crawler, script:result.script };
             
             //puede que sea una aproximación muy sencilla para compartir datos secretos
             const secret = crypto.randomBytes(24);
@@ -256,9 +260,11 @@ apiRoute.post('/multicast', async function(req, res)
                 .catch((error) => {
                     console.log('Error sending message:', error);
                 })
-                       
+                    
         })
-        .catch(console.log.bind(console))        
+        .catch(function(err){
+            res.status(500).send(err.message);
+        })        
         .done(function(){
             firebase.delete();
             res.status(200).end();            
@@ -267,7 +273,7 @@ apiRoute.post('/multicast', async function(req, res)
     else
     {
         res.status(401).send("No autorizado");
-    }
+    }   
 });
 
 //subscribirse
