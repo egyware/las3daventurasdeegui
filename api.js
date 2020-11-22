@@ -17,14 +17,14 @@ module.exports =
         }   
         if(Array.isArray(sku)){
             parameters.url = apiUrl+`/api/proveedor/${id}/stock`;
-            parameters['sku'] = sku;
-        }        
+            parameters.params = { sku };
+        }                
         return Q.fcall(axios, parameters)
         .then(function(results)
         {
             //TODO verificar timeouts, errores en general, etc..
             return results.data;
-        });
+        })        
     },    
     updateStock: function(id, articulo)
     {

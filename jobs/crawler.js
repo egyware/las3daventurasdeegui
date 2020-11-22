@@ -219,21 +219,21 @@ function crawler(crawlerData)
                 if(articuloEnWeb.Stock > 0 && articulo.stock == 0)
                 {                              
                     notificacion.tipo      = "SINSTOCK"; 
-                    notificacion.descripcion = `Se acabó ${nombre}`;
+                    notificacion.descripcion = `Se acabó ${articulo.nombre}`;
                 }else
                 if(articuloEnWeb.Precio > articulo.precio)
                 {
                     notificacion.tipo = "REBAJA"; 
-                    notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
+                    notificacion.descripcion = `Aprovecha ${articulo.nombre} tiene una rebaja de ${(1 - (articulo.precio / articuloEnWeb.Precio))*100}%`;
                 }else
                 if(articuloEnWeb.Stock < articulo.stock)
                 {                           
                     notificacion.tipo = "HAYSTOCK"; 
-                    notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
+                    notificacion.descripcion = `Disponible ${articulo.stock} unidades de ${articulo.nombre} en ${notificacion.proveedorNombre}`;
                 }
             }else if(articulo.stock > 0) { //solo si vale la pena
                 notificacion.tipo = "NUEVO";
-                notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
+                notificacion.descripcion = `Nuevo ${articulo.nombre} a ${notificacion.proveedorNombre}`;
             }                                              
             if(notificacion.tipo != null)
             {

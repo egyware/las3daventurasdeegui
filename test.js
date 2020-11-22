@@ -8,17 +8,23 @@ const api = require('./api.js')
 let publicKey    = fs.readFileSync('public.key', { encoding:'utf8', flag:'r'});
 let privateKey   = fs.readFileSync('private.key', { encoding:'utf8', flag:'r'});
 
- api.multicast({
-     titulo : 'Nuevo sitio',
-     cuerpo: 'Tenemos nuevo sitio, sigue igual, pero la url es más corta https://las3daventurasdeegui.cl',
-     enlace: 'https://las3daventurasdeegui.cl'
- })
- .then(function(results){
-     console.log(results);
- })
- .catch(function(err){
-     console.log(err);
- })
+api.getStock(4, [20571, 29779, 31155])
+.then(function(results)
+{
+    console.log(results);
+})
+
+//  api.multicast({
+//      titulo : 'Nuevo sitio',
+//      cuerpo: 'Tenemos nuevo sitio, sigue igual, pero la url es más corta https://las3daventurasdeegui.cl',
+//      enlace: 'https://las3daventurasdeegui.cl'
+//  })
+//  .then(function(results){
+//      console.log(results);
+//  })
+//  .catch(function(err){
+//      console.log(err);
+//  })
 
 //  api.crawlerInfo(4).then(function(crawler){
 //      console.log(crawler)

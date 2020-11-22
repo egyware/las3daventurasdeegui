@@ -146,47 +146,60 @@ apiRoute.get('/proveedor/:id/crawler', async function(req, res)
 
 apiRoute.get('/proveedor/:id/stock', async function(req, res)
 {    
-    await db.query(`SET @deltaRow = 0`)
-    await db.query(`SET @stockRow = 0`)
-    await db.query(`SET @deltaSku = ''`)
-    await db.query(`SET @stockSku = ''`)
-    await db.query(`SELECT 
-    S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.Precio as PrecioAnterior, StockAnterior, S.Fecha
-FROM 
-(
-    SELECT
-        @stockRow:=CASE WHEN @stockSku = S.sku THEN @stockRow + 1 ELSE 1 END AS stockRow,		
-        @stockSku:=S.sku as sku,deltaRow,
-        S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.PrecioAnterior, S.StockAnterior, S.Fecha
-    FROM
+    if(req.query.hasOwnProperty('sku') && !Array.isArray(req.query.sku))
+    {
+        await db.query(`SET @deltaRow = 0`)
+        await db.query(`SET @stockRow = 0`)
+        await db.query(`SET @deltaSku = ''`)
+        await db.query(`SET @stockSku = ''`)
+        await db.query(`SELECT 
+        S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.Precio as PrecioAnterior, StockAnterior, S.Fecha
+    FROM 
     (
-        SELECT		
-            deltaRow, S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, D.Precio as PrecioAnterior, D.Stock as StockAnterior, D.Fecha
-        FROM stock as S
-        INNER JOIN
+        SELECT
+            @stockRow:=CASE WHEN @stockSku = S.sku THEN @stockRow + 1 ELSE 1 END AS stockRow,		
+            @stockSku:=S.sku as sku,deltaRow,
+            S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, S.PrecioAnterior, S.StockAnterior, S.Fecha
+        FROM
         (
-            SELECT 
-                @deltaRow:=CASE WHEN @deltaSku = sku THEN @deltaRow + 1 ELSE 1 END AS deltaRow,		
-                @deltaSku:=sku as sku,        
-                ProveedorId,
-                Fecha,
-                Precio,
-                Stock        
-            FROM
-                stockdelta
-            ORDER BY ProveedorId, sku, fecha DESC
-        ) as D ON (S.ProveedorId = D.ProveedorId and S.sku = D.Sku)
-        WHERE D.deltaRow <= 2    
-        ORDER BY ProveedorId, S.sku, D.Fecha ASC
-    ) as S    
-) as S
-Where StockRow = 1 and ProveedorId = ?`, [ req.params.id ])
-    .then(function(results) {       
-        res.send(results);
-    })
-    .catch(function(err) {
-        res.status(500).send(err.message);
-    });    
+            SELECT		
+                deltaRow, S.sku, S.ProveedorId, S.Nombre, S.Marca, S.Stock, S.Precio, S.Link, S.UltimaActualizacion, D.Precio as PrecioAnterior, D.Stock as StockAnterior, D.Fecha
+            FROM stock as S
+            INNER JOIN
+            (
+                SELECT 
+                    @deltaRow:=CASE WHEN @deltaSku = sku THEN @deltaRow + 1 ELSE 1 END AS deltaRow,		
+                    @deltaSku:=sku as sku,        
+                    ProveedorId,
+                    Fecha,
+                    Precio,
+                    Stock        
+                FROM
+                    stockdelta
+                ORDER BY ProveedorId, sku, fecha DESC
+            ) as D ON (S.ProveedorId = D.ProveedorId and S.sku = D.Sku)
+            WHERE D.deltaRow <= 2    
+            ORDER BY ProveedorId, S.sku, D.Fecha ASC
+        ) as S    
+    ) as S
+    Where StockRow = 1 and ProveedorId = ?`, [ req.params.id ])
+        .then(function(results) {       
+            res.send(results);
+        })
+        .catch(function(err) {
+            res.status(500).send(err.message);
+        });    
+    }
+    else
+    {
+        await db.query(`SELECT Stock, Precio FROM stock WHERE ProveedorId = ? and Sku IN(${db.escape(req.query.sku)})`, [req.params.id])
+        .then(function(results) {
+            res.send(results);
+        })
+        .catch(function(err) {
+            res.status(500).send(err.message);
+        });    
+    }
 });
 
 apiRoute.get('/proveedor/:id/stock/:sku', async function(req, res)
@@ -220,17 +233,22 @@ apiRoute.post('/proveedor/:id/stock', async function(req, res)
     //si el origen de los datos está verificado o no
     if(isVerified)
     {
-        const articulo = body.data;
+        let articulos = body.data;
+        if(!Array.isArray(articulos))
+        {
+           articulos = [ articulos ];
+        }
+        articulos = articulos.map(articulo =>[req.params.id, articulo.sku, articulo.nombre, articulo.marca, articulo.stock, articulo.precio, articulo.enlace]);
         db.query(`INSERT INTO stock (ProveedorId, Sku, Nombre, Marca, Stock, Precio, Link)
-                 VALUES(?,?,?,?,?,?,?)
-                 ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
-                 [req.params.id, articulo.sku, articulo.nombre, articulo.marca, articulo.stock, articulo.precio, articulo.enlace])
-         .then(function(results) {       
-             res.status(200).end();
-         })
-         .catch(function(err) {
-             res.status(500).send(err.message);
-        });
+                VALUES ?
+                ON DUPLICATE KEY UPDATE Stock = VALUES(Stock), Precio = VALUES(Precio), UltimaActualizacion = NOW()`,
+                [articulos])                
+        .then(function(results) {       
+            res.status(200).end();
+        })
+        .catch(function(err) {
+            res.status(500).send(err.message);
+        });        
     }
     else
     {

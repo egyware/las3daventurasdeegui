@@ -22,9 +22,13 @@ if(!connectionString.startsWith('mysql://')) {
     connectionString = `mysql://${connectionProperties.UserId}:${connectionProperties.Password}@${connectionProperties.DataSource}/${connectionProperties.Database}?connectionLimit=3`
 }
 
-const pool = pool = mysql.createPool(connectionString);   ;
+const pool = mysql.createPool(connectionString);
 
 module.exports = {    
+    escape: function(input)
+    {
+        return pool.escape(input);
+    },
     query: function( sql, params ) {
         var deferred = Q.defer();
         pool.query(sql, params, function (err, results) {
@@ -35,7 +39,7 @@ module.exports = {
             deferred.resolve(results);
         });
         return deferred.promise;       
-    },
+    },    
     end: function()
     {       
         pool.end();    
