@@ -78,26 +78,72 @@ const alwaysFalse = {
     test : function() { return false; }
 }
 
-function sandbox(crawlerData, $, enlace){
+async function sandbox(crawlerData, $, enlace){
     //creando una caja de arena para ejecutar scripts de la base de datos            
-    let articulos = []    
+    let promesasSandbox = [];
     let sandbox = {                
         $: $,
         jQuery: $, //alias
         hashCode: hashCode,
         enlace: enlace,        
-        save: function(sku, nombre, marca, stock, precio, enlace)
-        {            
-            const articulo = 
-            { 
-                sku,
-                nombre,
-                marca,
-                stock, 
-                precio, 
-                enlace
-            };
-            articulos.push(articulo);            
+        save: function(sku, nombre, marca, stock, precio, enlace){
+            let promesaSave = 
+            api.getStock(crawlerData.id, sku)            
+            .then(function(results)
+            {
+                let notificacion = {
+                    proveedorId: crawlerData.id,
+                    proveedorNombre: crawlerData.empresa,
+                    sku: sku,
+                    nombre: nombre,
+                    marca: marca,                            
+                    tipo: null,
+                    descripcion: null                           
+                }
+                if(results.length > 0)
+                {
+                    let resultado = results[0];                            
+                    
+                    if(resultado.Stock > 0 && stock == 0)
+                    {                              
+                        notificacion.tipo      = "SINSTOCK"; 
+                        notificacion.descripcion = `Se acabó ${nombre}`;
+                    }else
+                    if(resultado.Precio > precio)
+                    {
+                        notificacion.tipo = "REBAJA"; 
+                        notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
+                    }else
+                    if(resultado.Stock < stock)
+                    {                           
+                        notificacion.tipo = "HAYSTOCK"; 
+                        notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
+                    }
+                }else if(stock > 0) { //solo si vale la pena
+                    notificacion.tipo = "NUEVO";
+                    notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
+                }                                              
+                if(notificacion.tipo != null)
+                {
+                    notificaciones.push(notificacion);
+                }
+
+            })
+            .then(function(){                
+
+                const articulo = { 
+                    sku,
+                    nombre,
+                    marca,
+                    stock, 
+                    precio, 
+                    enlace
+                };
+                
+                return api.updateStock(crawlerData.id, articulo);                
+            })                    
+            .catch(console.log.bind(console));                    
+            promesasSandbox.push(promesaSave);
         }
     };
                 
@@ -107,21 +153,20 @@ function sandbox(crawlerData, $, enlace){
     } catch (e) {
         console.log('Sandbox:', e.message, enlace);                
     }            
-    //regresamos todos los articulos por agregar
-    return articulos;
+    //esperamos todas las promesas hechas en esta iteración antes de pasar a la siguiente
+    await Q.allSettled(promesasSandbox);
 }
 
 var notificaciones = [];
 var enlacesVisitados = [];
 var anchorLinkRegex = /#.*?$/i
 async function scrap(crawlerData, enlaces) {    
-    let articulos = []
     let promesas = enlaces.map(function(enlace){
         //aunque falle traer la pagina, igual se anaide en los enlaces visitados
         enlacesVisitados.push(enlace);
 
         let promesa = obtenerPagina(enlace)
-        .then((res) => {
+        .then(async (res) => {
             const html = res.data;
             const $ = cheerio.load(html);
             const hrefs = $('a');            
@@ -143,15 +188,13 @@ async function scrap(crawlerData, enlaces) {
                 }
             });
 
-            let articulosPorAgregar = sandbox(crawlerData, $, enlace);
-            articulos = articulos.concat(articulosPorAgregar);
+            await sandbox(crawlerData, $, enlace);
 
             return siguientesEnlaces;
         }).then(async function(siguientesEnlaces){
             if (siguientesEnlaces.length > 0)
             {
-                let articulosPorAgregar = await scrap(crawlerData, siguientesEnlaces);
-                articulos = articulos.concat(articulosPorAgregar);
+                await scrap(crawlerData, siguientesEnlaces);
             }
         })
         .catch(function(err){
@@ -159,8 +202,7 @@ async function scrap(crawlerData, enlaces) {
         });
         return promesa;
     }); //end map
-    await Q.allSettled(promesas); 
-    return articulos;      
+    await Q.allSettled(promesas);        
 }
 
 async function main(){    
@@ -191,56 +233,7 @@ async function main(){
 function crawler(crawlerData)
 {
     return Q.fcall(async function() {            
-        let articulos = await scrap(crawlerData, crawlerData.origenes);
-        return { proveedorId:crawlerData.id, proveedorNombre:crawlerData.empresa, articulos };
-    })
-    .then(async function(scraped)
-    {
-        // Sku, Stock, Precio
-        let results = await api.getStock(scraped.proveedorId, scraped.articulos.map(articulo=>articulo.sku));
-        let stockEnWeb = {}
-        results.forEach(item => {
-            stockEnWeb[item.Sku] = { Precio:item.Stock, Precio:item.Precio }
-        });
-        scraped.articulos.forEach(articulo => {            
-            let notificacion = {
-                proveedorId: scraped.proveedorId,
-                proveedorNombre: scraped.proveedorNombre,
-                sku: articulo.sku,
-                nombre: articulo.nombre,
-                marca: articulo.marca,                            
-                tipo: null,
-                descripcion: null                           
-            }
-            if(stockEnWeb.hasOwnProperty(articulo.sku))
-            {
-                let articuloEnWeb =  stockEnWeb[articulo.sku];
-                
-                if(articuloEnWeb.Stock > 0 && articulo.stock == 0)
-                {                              
-                    notificacion.tipo      = "SINSTOCK"; 
-                    notificacion.descripcion = `Se acabó ${nombre}`;
-                }else
-                if(articuloEnWeb.Precio > articulo.precio)
-                {
-                    notificacion.tipo = "REBAJA"; 
-                    notificacion.descripcion = `Aprovecha ${nombre} tiene una rebaja de ${(1 - (precio / resultado.Precio))*100}%`;
-                }else
-                if(articuloEnWeb.Stock < articulo.stock)
-                {                           
-                    notificacion.tipo = "HAYSTOCK"; 
-                    notificacion.descripcion = `Disponible ${stock} unidades de ${nombre} en ${notificacion.proveedorNombre}`;
-                }
-            }else if(articulo.stock > 0) { //solo si vale la pena
-                notificacion.tipo = "NUEVO";
-                notificacion.descripcion = `Nuevo ${nombre} a ${notificacion.proveedorNombre}`;
-            }                                              
-            if(notificacion.tipo != null)
-            {
-                notificaciones.push(notificacion);
-            }
-        }); //fin forEach
-        await api.updateStock(scraped.proveedorId, scraped.articulos);
+        await scrap(crawlerData, crawlerData.origenes);            
     })
     .then(function(){     
             if(notificaciones.length > 0){

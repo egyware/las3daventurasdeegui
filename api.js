@@ -10,17 +10,22 @@ let privateKey = fs.readFileSync('private.key', { encoding:'utf8', flag:'r'});
 module.exports = 
 {
     getStock: function(id, sku)
-    {
-        return Q.fcall(axios,{
-                 method: 'get',
-                 url: apiUrl+`/api/proveedor/${id}/stock/${sku}`                 
-        })
+    {   
+        let parameters = {
+            method: 'get',
+            url: apiUrl+`/api/proveedor/${id}/stock/${sku}`
+        }   
+        if(Array.isArray(sku)){
+            parameters.url = apiUrl+`/api/proveedor/${id}/stock`;
+            parameters['sku'] = sku;
+        }        
+        return Q.fcall(axios, parameters)
         .then(function(results)
         {
             //TODO verificar timeouts, errores en general, etc..
             return results.data;
         });
-    },
+    },    
     updateStock: function(id, articulo)
     {
         const signature = crypto.sign("sha256", Buffer.from(JSON.stringify(articulo)), {

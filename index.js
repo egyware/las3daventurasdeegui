@@ -29,7 +29,7 @@ app.get('/', function(req, res){
 
 apiRoute.get('/proveedor', async function(req, res)
 {
-    db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
+    db.query(`SELECT P.id, P.website, P.empresa, P.descripcion, length(P.favicon) > 0 as tieneLogo, COUNT(S.ProveedorId) AS scrapedProductos
               FROM proveedores AS P              
               LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)              
               GROUP BY P.id`)    
@@ -74,6 +74,31 @@ apiRoute.get('/proveedor/:id', async function(req, res)
         if(results.length > 0)
          {
             res.send(results[0]);
+         }
+         else
+         {
+            res.status(404).end()
+         }
+     })
+     .catch(function(err) {
+         res.status(500).send(err.message);
+     });
+});
+
+apiRoute.get('/proveedor/:id/logo', async function(req, res)
+{
+    db.query(`SELECT favicon, faviconMIME
+              FROM proveedores              
+              WHERE id = ?`, [req.params.id])    
+     .then(function(results) {            
+        if(results.length > 0)
+         {            
+            const result = results[0];
+            res.set({
+                'Content-Type': result.faviconMIME,
+                'Content-Length': result.favicon.length
+            })            
+            res.send(result.favicon);
          }
          else
          {
