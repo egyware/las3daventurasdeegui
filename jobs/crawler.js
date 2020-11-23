@@ -196,6 +196,12 @@ function crawler(crawlerData)
     })
     .then(async function(scraped)
     {
+        console.log(scraped)
+        if(scraped.articulos.length == 0)
+        {
+            //no hacer nada..., nada que hacer tampoco
+            return;
+        }
         // Sku, Stock, Precio
         let results = await api.getStock(scraped.proveedorId, scraped.articulos.map(articulo=>articulo.sku));
         let stockEnWeb = {}
@@ -239,7 +245,7 @@ function crawler(crawlerData)
             {
                 notificaciones.push(notificacion);
             }
-        }); //fin forEach
+        }); //fin forEach         
         await api.updateStock(scraped.proveedorId, scraped.articulos);
     })
     .then(function(){     

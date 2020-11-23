@@ -27,7 +27,7 @@ module.exports =
         })        
     },    
     updateStock: function(id, articulo)
-    {
+    {        
         const signature = crypto.sign("sha256", Buffer.from(JSON.stringify(articulo)), {
               key: privateKey,
               padding: crypto.constants.RSA_PKCS1_PSS_PADDING,

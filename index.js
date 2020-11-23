@@ -65,7 +65,7 @@ apiRoute.get('/proveedor/search', async function(req, res)
 
 apiRoute.get('/proveedor/:id', async function(req, res)
 {
-    db.query(`SELECT P.id, P.website, P.empresa, P.favicon, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
+    db.query(`SELECT P.id, P.website, P.empresa, length(P.favicon) > 0 as tieneLogo, P.descripcion, COUNT(S.ProveedorId) AS scrapedProductos
               FROM proveedores AS P              
               LEFT JOIN stock  AS S ON (P.id = S.ProveedorId)
               WHERE P.id = ?
@@ -146,7 +146,7 @@ apiRoute.get('/proveedor/:id/crawler', async function(req, res)
 
 apiRoute.get('/proveedor/:id/stock', async function(req, res)
 {    
-    if(req.query.hasOwnProperty('sku') && !Array.isArray(req.query.sku))
+    if(!req.query.hasOwnProperty('sku'))
     {
         await db.query(`SET @deltaRow = 0`)
         await db.query(`SET @stockRow = 0`)
